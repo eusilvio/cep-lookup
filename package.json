@@ -1,0 +1,49 @@
+{
+  "name": "@eusilvio/cep-lookup",
+  "version": "1.0.0",
+  "description": "A modern, flexible, and agnostic CEP lookup library written in TypeScript.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./providers": "./dist/providers/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "example": "ts-node -r tsconfig-paths/register examples/example.ts",
+    "custom-example": "ts-node -r tsconfig-paths/register examples/custom-provider-example.ts",
+    "node-example": "ts-node -r tsconfig-paths/register examples/node-example.ts"
+  },
+  "keywords": [
+    "cep",
+    "lookup",
+    "typescript",
+    "address",
+    "correios"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eusilvio/cep-lookup.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eusilvio/cep-lookup/issues"
+  },
+  "homepage": "https://github.com/eusilvio/cep-lookup#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.2"
+  }
+}
