@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A modern, flexible, and agnostic CEP lookup library written in TypeScript.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
