@@ -33,8 +33,8 @@ export class CepLookup {
    */
   constructor(options: CepLookupOptions) {
     this.providers = options.providers;
-    this.fetcher = options.fetcher || (async (url: string) => {
-      const response = await fetch(url);
+    this.fetcher = options.fetcher || (async (url: string, signal?: AbortSignal) => {
+      const response = await fetch(url, { signal });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -53,15 +53,44 @@ export class CepLookup {
    */
   async lookup<T = Address>(cep: string, mapper?: (address: Address) => T): Promise<T> {
     const cleanedCep = validateCep(cep);
+    const controller = new AbortController();
+    const { signal } = controller;
 
     const promises = this.providers.map((provider) => {
       const url = provider.buildUrl(cleanedCep);
-      return this.fetcher(url)
+      
+      const timeoutPromise = new Promise<never>((resolve, reject) => {
+        let timeoutId: NodeJS.Timeout;
+        const onAbort = () => {
+          clearTimeout(timeoutId);
+          reject(new DOMException('Aborted', 'AbortError'));
+        };
+
+        if (provider.timeout) {
+          timeoutId = setTimeout(() => {
+            signal.removeEventListener('abort', onAbort);
+            reject(new Error(`Timeout from ${provider.name}`));
+          }, provider.timeout);
+          signal.addEventListener('abort', onAbort, { once: true });
+        } else {
+          // If no timeout, this promise will never resolve/reject on its own
+          // but will reject if the signal aborts.
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
+
+      const fetchPromise = this.fetcher(url, signal)
         .then((response) => provider.transform(response))
         .then((address) => (mapper ? mapper(address) : (address as unknown as T)));
+
+      return Promise.race([fetchPromise, timeoutPromise]);
     });
 
-    return Promise.any(promises);
+    try {
+      return await Promise.any(promises);
+    } finally {
+      controller.abort();
+    }
   }
 }
 

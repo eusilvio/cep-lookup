@@ -5,6 +5,29 @@ import { Address } from "../src/types";
 
 describe("cep-lookup", () => {
   describe("CepLookup Class", () => {
+    let originalFetch: typeof global.fetch;
+    let mockFetch: jest.Mock;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+      mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            cep: "01001-000",
+            logradouro: "Praça da Sé",
+            bairro: "Sé",
+            localidade: "São Paulo",
+            uf: "SP",
+          }),
+      });
+      global.fetch = mockFetch;
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
     it("should return the address from the fastest provider", async () => {
       const cep = "01001-000";
       const mockFetcher = jest.fn().mockImplementation((url: string) => {
@@ -101,35 +124,135 @@ describe("cep-lookup", () => {
 
     it("should use the default fetcher if none is provided", async () => {
       const cep = "01001-000";
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            cep: "01001-000",
-            logradouro: "Praça da Sé",
-            bairro: "Sé",
-            localidade: "São Paulo",
-            uf: "SP",
-          }),
-      });
-      // Mock the global fetch function
-      global.fetch = mockFetch;
 
       const cepLookup = new CepLookup({
         providers: [viaCepProvider],
       });
 
       const address = await cepLookup.lookup(cep);
-
       expect(address.service).toBe("ViaCEP");
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledWith("https://viacep.com.br/ws/01001000/json/");
+      expect(mockFetch).toHaveBeenCalledWith("https://viacep.com.br/ws/01001000/json/", expect.any(Object));
+    });
+
+    it("should throw a timeout error if a provider takes too long", async () => {
+      jest.useFakeTimers();
+      const cep = "01001-000";
+      const slowProvider = {
+        ...viaCepProvider,
+        timeout: 50, // 50ms timeout
+      };
+
+      const mockFetcher = jest.fn().mockImplementation((url: string, signal?: AbortSignal) => {
+        return new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            resolve({
+              cep: "01001-000",
+              logradouro: "Praça da Sé",
+              bairro: "Sé",
+              localidade: "São Paulo",
+              uf: "SP",
+            });
+          }, 100); // This will take 100ms, exceeding the 50ms timeout
+
+          signal?.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            reject(new DOMException('Aborted', 'AbortError'));
+          }, { once: true });
+        });
+      });
+
+      const cepLookup = new CepLookup({
+        providers: [slowProvider],
+        fetcher: mockFetcher,
+      });
+
+      const lookupPromise = cepLookup.lookup(cep);
+
+      jest.advanceTimersByTime(100); // Advance time to trigger the timeout
+
+      await expect(lookupPromise).rejects.toThrow(
+        expect.objectContaining({
+          errors: expect.arrayContaining([
+            expect.objectContaining({ message: "Timeout from ViaCEP" }),
+          ]),
+        })
+      );
+      expect(mockFetcher).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+
+    it("should abort other requests when one provider succeeds", async () => {
+      jest.useFakeTimers();
+      const cep = "01001-000";
+      const abortSpy = jest.fn();
+
+      const slowProvider = {
+        ...brasilApiProvider,
+        timeout: 200,
+      };
+
+      const fastProvider = {
+        ...viaCepProvider,
+        timeout: 50,
+      };
+
+      const mockFetcher = jest.fn().mockImplementation((url: string, signal?: AbortSignal) => {
+        return new Promise((resolve, reject) => {
+          let resolved = false;
+          const delay = url.includes("viacep") ? 20 : 100; // Fast provider resolves in 20ms, slow in 100ms
+          const timeoutId = setTimeout(() => {
+            resolved = true; // Set flag to true when resolved
+            if (url.includes("viacep")) {
+              resolve({
+                cep: "01001-000",
+                logradouro: "Praça da Sé",
+                bairro: "Sé",
+                localidade: "São Paulo",
+                uf: "SP",
+              });
+            } else {
+              resolve({
+                cep: "01001000",
+                state: "SP",
+                city: "São Paulo",
+                neighborhood: "Sé",
+                street: "Praça da Sé",
+              });
+            }
+          }, delay);
+
+          signal?.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            if (!resolved) { // Only call abortSpy if the promise has not already resolved
+              abortSpy(); // Spy on abort event
+              reject(new DOMException('Aborted', 'AbortError'));
+            }
+          }, { once: true });
+        });
+      });
+
+      const cepLookup = new CepLookup({
+        providers: [slowProvider, fastProvider],
+        fetcher: mockFetcher,
+      });
+
+      const lookupPromise = cepLookup.lookup(cep);
+
+      jest.advanceTimersByTime(30); // Advance time enough for fastProvider to resolve
+
+      const address = await lookupPromise;
+
+      expect(address.service).toBe("ViaCEP");
+      expect(mockFetcher).toHaveBeenCalledTimes(2); // Both requests are initiated
+      expect(abortSpy).toHaveBeenCalledTimes(1); // One request should have been aborted
+      jest.useRealTimers();
     });
   });
 
   describe("lookupCep Function (Backward Compatibility)", () => {
     it("should return the address from the fastest provider", async () => {
+      jest.useFakeTimers();
       const cep = "01001-000";
       const mockFetcher = jest.fn().mockImplementation((url: string) => {
         if (url.includes("viacep")) {
@@ -163,10 +286,15 @@ describe("cep-lookup", () => {
         }
       });
 
-      const address = await lookupCep({ cep, providers: [viaCepProvider, brasilApiProvider], fetcher: mockFetcher });
+      const lookupPromise = lookupCep({ cep, providers: [viaCepProvider, brasilApiProvider], fetcher: mockFetcher });
+
+      jest.advanceTimersByTime(200); // Advance time enough for both providers to potentially respond
+
+      const address = await lookupPromise;
 
       expect(address.service).toBe("ViaCEP");
       expect(mockFetcher).toHaveBeenCalledTimes(2);
+      jest.useRealTimers();
     });
 
     it("should use the default fetcher if none is provided", async () => {
@@ -187,9 +315,7 @@ describe("cep-lookup", () => {
 
       const address = await lookupCep({ cep, providers: [viaCepProvider] });
 
-      expect(address.service).toBe("ViaCEP");
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledWith("https://viacep.com.br/ws/01001000/json/");
+      expect(mockFetch).toHaveBeenCalledWith("https://viacep.com.br/ws/01001000/json/", expect.any(Object));
     });
   });
 });

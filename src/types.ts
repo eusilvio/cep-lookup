@@ -27,15 +27,16 @@ export interface Address {
  */
 export interface Provider {
   name: string;
+  timeout?: number; // timeout in milliseconds
   buildUrl: (cep: string) => string;
   transform: (response: any) => Address;
 }
 
 /**
- * @typedef {function(url: string): Promise<any>}
+ * @typedef {function(url: string, signal?: AbortSignal): Promise<any>}
  * @description A function that fetches data from a given URL and returns a Promise resolving to the response data.
  */
-export type Fetcher = (url: string) => Promise<any>;
+export type Fetcher = (url: string, signal?: AbortSignal) => Promise<any>;
 
 /**
  * @interface CepLookupOptions
