@@ -1,6 +1,7 @@
 # @eusilvio/cep-lookup
 
 [![NPM Version](https://img.shields.io/npm/v/@eusilvio/cep-lookup.svg)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
+[![NPM Unpacked Size](https://img.shields.io/npm/unpacked-size/@eusilvio/cep-lookup)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
 [![Build Status](https://img.shields.io/github/workflow/status/eusilvio/cep-lookup/CI)](https://github.com/eusilvio/cep-lookup/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
