@@ -41,7 +41,6 @@ Thumbs.db
 /coverage
 
 # npm package manager
-package-lock.json
 
 # Yarn package manager
 yarn.lock
