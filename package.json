@@ -1,21 +1,12 @@
 {
   "name": "@eusilvio/cep-lookup",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "A modern, flexible, and agnostic CEP lookup library written in TypeScript.",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./providers": {
-      "import": "./dist/esm/providers/index.js",
-      "require": "./dist/cjs/providers/index.js",
-      "types": "./dist/providers/index.d.ts"
-    }
+    ".": "./dist/index.js",
+    "./providers": "./dist/providers/index.js"
   },
   "sideEffects": false,
   "files": [
@@ -26,11 +17,8 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "type:check": "tsc --noEmit",
-    "build": "npm run clean && npm run type:check && npm run build:types && npm run build:esm && npm run build:cjs",
-    "build:types": "tsc --emitDeclarationOnly --outDir dist --rootDir src",
-    "build:esm": "esbuild src/index.ts --outdir=dist/esm --format=esm --platform=neutral --minify && esbuild src/providers/*.ts --outdir=dist/esm/providers --format=esm --platform=neutral --minify",
-    "build:cjs": "esbuild src/index.ts --outdir=dist/cjs --format=cjs --platform=node --minify && esbuild src/providers/*.ts --outdir=dist/cjs/providers --format=cjs --platform=node --minify",
+    "build": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts --outdir=dist --bundle --platform=node --format=cjs",
+    "build:prod": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts --outdir=dist --bundle --platform=node --format=cjs --minify",
     "test": "jest"
   },
   "keywords": [
