@@ -1,16 +1,19 @@
 {
   "name": "@eusilvio/cep-lookup",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A modern, flexible, and agnostic CEP lookup library written in TypeScript.",
-  "main": "./dist/index.js",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
       "types": "./dist/index.d.ts"
     },
     "./providers": {
-      "import": "./dist/providers/index.js",
+      "import": "./dist/esm/providers/index.js",
+      "require": "./dist/cjs/providers/index.js",
       "types": "./dist/providers/index.d.ts"
     }
   },
@@ -24,11 +27,11 @@
   "scripts": {
     "clean": "rm -rf dist",
     "type:check": "tsc --noEmit",
-    "build": "npm run clean && npm run type:check && npm run build:types && npm run build:js",
+    "build": "npm run clean && npm run type:check && npm run build:types && npm run build:esm && npm run build:cjs",
     "build:types": "tsc --emitDeclarationOnly --outDir dist --rootDir src",
-    "build:js": "esbuild src/index.ts src/providers/index.ts --outdir=dist --outbase=src --format=esm --platform=neutral --target=esnext --minify",
-    "test": "jest",
-    "cache-example": "ts-node -r tsconfig-paths/register examples/cache-example.ts"
+    "build:esm": "esbuild src/index.ts --outdir=dist/esm --format=esm --platform=neutral --minify && esbuild src/providers/*.ts --outdir=dist/esm/providers --format=esm --platform=neutral --minify",
+    "build:cjs": "esbuild src/index.ts --outdir=dist/cjs --format=cjs --platform=node --minify && esbuild src/providers/*.ts --outdir=dist/cjs/providers --format=cjs --platform=node --minify",
+    "test": "jest"
   },
   "keywords": [
     "cep",
