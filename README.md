@@ -21,6 +21,7 @@ Its agnostic design allows it to be used in any JavaScript environment with any 
 - **HTTP Client Agnostic**: You provide the fetch function, giving you full control over the requests. Defaults to global `fetch` if not provided.
 - **Modular and Extensible Architecture**: Adding a new CEP data source is trivial.
 - **Fully Typed**: Developed with TypeScript to ensure type safety and a great developer experience.
+- **Caching**: Built-in support for caching to avoid repeated requests for the same CEP.
 
 ## Installation
 
@@ -29,6 +30,8 @@ npm install @eusilvio/cep-lookup
 ```
 
 ## How to Use
+
+`@eusilvio/cep-lookup` is designed to be straightforward. You can create a reusable instance of the `CepLookup` class with your desired settings or use the `lookupCep` function for a quick, one-off lookup. The library also includes a simple in-memory cache to avoid repeated requests, which you can use or replace with your own implementation.
 
 ### Example 1: Basic Usage
 
@@ -105,6 +108,7 @@ Creates a new `CepLookup` instance.
 - `options`: A configuration object.
   - `providers` (Provider[], **required**): An array of providers that will be queried.
   - `fetcher` (Fetcher, _optional_): Your asynchronous function that fetches data from a URL. Defaults to global `fetch` if not provided.
+  - `cache` (Cache, _optional_): An instance of a cache that implements the `Cache` interface. Use `InMemoryCache` for a simple in-memory cache.
 
 ### `cepLookup.lookup<T = Address>(cep, mapper?): Promise<T>`
 
@@ -123,14 +127,7 @@ You can find more detailed examples in the `examples/` directory:
 - **React Component**: `examples/react-example.tsx`
 - **React Hook**: `examples/react-hook-example.ts`
 - **Angular Component/Service**: `examples/angular-example.ts`
-
-To run the examples, use the following commands:
-
-```bash
-npm run example
-npm run custom-example
-npm run node-example
-```
+- **Cache Usage**: `examples/cache-example.ts`
 
 ## Creating a Custom Provider
 

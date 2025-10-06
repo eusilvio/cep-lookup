@@ -1,5 +1,5 @@
 
-import { CepLookup, lookupCep } from "../src";
+import { CepLookup, lookupCep, InMemoryCache } from "../src";
 import { viaCepProvider, brasilApiProvider, apicepProvider } from "../src/providers";
 import { Address } from "../src/types";
 
@@ -248,6 +248,85 @@ describe("cep-lookup", () => {
       expect(abortSpy).toHaveBeenCalledTimes(1); // One request should have been aborted
       jest.useRealTimers();
     });
+
+    describe("Cache", () => {
+      it("should cache the address after the first lookup", async () => {
+        const cep = "01001-000";
+        const mockFetcher = jest.fn().mockResolvedValue({
+          cep: "01001-000",
+          logradouro: "Praça da Sé",
+          bairro: "Sé",
+          localidade: "São Paulo",
+          uf: "SP",
+        });
+
+        const cache = new InMemoryCache();
+        const cepLookup = new CepLookup({
+          providers: [viaCepProvider],
+          fetcher: mockFetcher,
+          cache,
+        });
+
+        const address = await cepLookup.lookup(cep);
+        expect(address.service).toBe("ViaCEP");
+        expect(mockFetcher).toHaveBeenCalledTimes(1);
+
+        // Second lookup
+        const cachedAddress = await cepLookup.lookup(cep);
+        expect(cachedAddress.service).toBe("ViaCEP");
+        expect(mockFetcher).toHaveBeenCalledTimes(1); // Should not be called again
+      });
+
+      it("should not cache if the cache option is not provided", async () => {
+        const cep = "01001-000";
+        const mockFetcher = jest.fn().mockResolvedValue({
+          cep: "01001-000",
+          logradouro: "Praça da Sé",
+          bairro: "Sé",
+          localidade: "São Paulo",
+          uf: "SP",
+        });
+
+        const cepLookup = new CepLookup({
+          providers: [viaCepProvider],
+          fetcher: mockFetcher,
+        });
+
+        await cepLookup.lookup(cep);
+        expect(mockFetcher).toHaveBeenCalledTimes(1);
+
+        // Second lookup
+        await cepLookup.lookup(cep);
+        expect(mockFetcher).toHaveBeenCalledTimes(2); // Should be called again
+      });
+
+      it("should be possible to clear the cache", async () => {
+        const cep = "01001-000";
+        const mockFetcher = jest.fn().mockResolvedValue({
+          cep: "01001-000",
+          logradouro: "Praça da Sé",
+          bairro: "Sé",
+          localidade: "São Paulo",
+          uf: "SP",
+        });
+
+        const cache = new InMemoryCache();
+        const cepLookup = new CepLookup({
+          providers: [viaCepProvider],
+          fetcher: mockFetcher,
+          cache,
+        });
+
+        await cepLookup.lookup(cep);
+        expect(mockFetcher).toHaveBeenCalledTimes(1);
+
+        cache.clear();
+
+        // Second lookup
+        await cepLookup.lookup(cep);
+        expect(mockFetcher).toHaveBeenCalledTimes(2); // Should be called again
+      });
+    });
   });
 
   describe("lookupCep Function (Backward Compatibility)", () => {
@@ -316,6 +395,27 @@ describe("cep-lookup", () => {
       const address = await lookupCep({ cep, providers: [viaCepProvider] });
 
       expect(mockFetch).toHaveBeenCalledWith("https://viacep.com.br/ws/01001000/json/", expect.any(Object));
+    });
+
+    it("should use the cache when provided", async () => {
+      const cep = "01001-000";
+      const mockFetcher = jest.fn().mockResolvedValue({
+        cep: "01001-000",
+        logradouro: "Praça da Sé",
+        bairro: "Sé",
+        localidade: "São Paulo",
+        uf: "SP",
+      });
+
+      const cache = new InMemoryCache();
+
+      // First lookup
+      await lookupCep({ cep, providers: [viaCepProvider], fetcher: mockFetcher, cache });
+      expect(mockFetcher).toHaveBeenCalledTimes(1);
+
+      // Second lookup
+      await lookupCep({ cep, providers: [viaCepProvider], fetcher: mockFetcher, cache });
+      expect(mockFetcher).toHaveBeenCalledTimes(1); // Should not be called again
     });
   });
 });

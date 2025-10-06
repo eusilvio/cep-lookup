@@ -44,7 +44,10 @@ export type Fetcher = (url: string, signal?: AbortSignal) => Promise<any>;
  * @property {Provider[]} providers - An array of `Provider` instances to be used for CEP lookup.
  * @property {Fetcher} [fetcher] - The `Fetcher` function to be used for making HTTP requests. Defaults to global `fetch` if not provided.
  */
+import { Cache } from "./cache";
+
 export interface CepLookupOptions {
   providers: Provider[];
   fetcher?: Fetcher;
+  cache?: Cache;
 }
