@@ -1,7 +1,8 @@
 
 import { Address, Fetcher, Provider, CepLookupOptions } from "./types";
+import { Cache, InMemoryCache } from "./cache";
 
-export { Address, Fetcher, Provider, CepLookupOptions };
+export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache };
 
 /**
  * @function validateCep
@@ -26,6 +27,7 @@ function validateCep(cep: string): string {
 export class CepLookup {
   private providers: Provider[];
   private fetcher: Fetcher;
+  private cache?: Cache;
 
   /**
    * @constructor
@@ -40,6 +42,7 @@ export class CepLookup {
       }
       return response.json();
     });
+    this.cache = options.cache;
   }
 
   /**
@@ -53,6 +56,14 @@ export class CepLookup {
    */
   async lookup<T = Address>(cep: string, mapper?: (address: Address) => T): Promise<T> {
     const cleanedCep = validateCep(cep);
+
+    if (this.cache) {
+      const cachedAddress = this.cache.get(cleanedCep);
+      if (cachedAddress) {
+        return Promise.resolve(mapper ? mapper(cachedAddress) : (cachedAddress as unknown as T));
+      }
+    }
+
     const controller = new AbortController();
     const { signal } = controller;
 
@@ -73,15 +84,18 @@ export class CepLookup {
           }, provider.timeout);
           signal.addEventListener('abort', onAbort, { once: true });
         } else {
-          // If no timeout, this promise will never resolve/reject on its own
-          // but will reject if the signal aborts.
           signal.addEventListener('abort', onAbort, { once: true });
         }
       });
 
       const fetchPromise = this.fetcher(url, signal)
         .then((response) => provider.transform(response))
-        .then((address) => (mapper ? mapper(address) : (address as unknown as T)));
+        .then((address) => {
+          if (this.cache) {
+            this.cache.set(cleanedCep, address);
+          }
+          return mapper ? mapper(address) : (address as unknown as T);
+        });
 
       return Promise.race([fetchPromise, timeoutPromise]);
     });
@@ -102,12 +116,13 @@ export class CepLookup {
  * @param {string} options.cep - The CEP to be queried.
  * @param {Provider[]} options.providers - An array of `Provider` instances.
  * @param {Fetcher} [options.fetcher] - The `Fetcher` function. Defaults to global `fetch` if not provided.
+ * @param {Cache} [options.cache] - The `Cache` instance. 
  * @param {(address: Address) => T} [options.mapper] - An optional function to transform the `Address` object.
  * @returns {Promise<T>} A Promise that resolves to the address.
  * @throws {Error} If the CEP is invalid or if all providers fail.
  */
 export function lookupCep<T = Address>(options: CepLookupOptions & { cep: string, mapper?: (address: Address) => T }): Promise<T> {
-  const { cep, providers, fetcher, mapper } = options;
-  const cepLookup = new CepLookup({ providers, fetcher });
+  const { cep, providers, fetcher, mapper, cache } = options;
+  const cepLookup = new CepLookup({ providers, fetcher, cache });
   return cepLookup.lookup(cep, mapper);
 }
