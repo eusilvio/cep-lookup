@@ -1,5 +1,5 @@
-import { CepLookup, InMemoryCache } from "../src";
-import { viaCepProvider } from "../src/providers";
+import { CepLookup, InMemoryCache } from "@eusilvio/cep-lookup";
+import { viaCepProvider } from "@eusilvio/cep-lookup/providers";
 
 // 1. Create a cache instance
 const cache = new InMemoryCache();

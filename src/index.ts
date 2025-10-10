@@ -1,8 +1,8 @@
 
-import { Address, Fetcher, Provider, CepLookupOptions } from "./types";
+import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult } from "./types";
 import { Cache, InMemoryCache } from "./cache";
 
-export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache };
+export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache, BulkCepResult };
 
 /**
  * @function validateCep
@@ -125,4 +125,50 @@ export function lookupCep<T = Address>(options: CepLookupOptions & { cep: string
   const { cep, providers, fetcher, mapper, cache } = options;
   const cepLookup = new CepLookup({ providers, fetcher, cache });
   return cepLookup.lookup(cep, mapper);
+}
+
+/**
+ * @function lookupCeps
+ * @description Looks up multiple CEPs in bulk with controlled concurrency.
+ * @param {CepLookupOptions & { ceps: string[], concurrency?: number }} options - Options for the bulk lookup.
+ * @returns {Promise<BulkCepResult[]>} A Promise that resolves to an array of results for each CEP.
+ */
+export async function lookupCeps(options: CepLookupOptions & { ceps: string[], concurrency?: number }): Promise<BulkCepResult[]> {
+  const { ceps, providers, fetcher, cache, concurrency = 5 } = options;
+  if (!ceps || ceps.length === 0) {
+    return [];
+  }
+
+  const cepLookup = new CepLookup({ providers, fetcher, cache });
+
+  const results: BulkCepResult[] = new Array(ceps.length);
+  let cepIndex = 0;
+
+  const worker = async () => {
+    while (cepIndex < ceps.length) {
+      const currentIndex = cepIndex++;
+      // Check if another worker has already taken the last job
+      if (currentIndex >= ceps.length) {
+        break;
+      }
+      
+      const cep = ceps[currentIndex];
+
+      try {
+        const address = await cepLookup.lookup(cep);
+        if (address) {
+          results[currentIndex] = { cep, data: address, provider: address.service };
+        } else {
+          throw new Error('No address found');
+        }
+      } catch (error) {
+        results[currentIndex] = { cep, data: null, error: error as Error };
+      }
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(concurrency, ceps.length) }, () => worker());
+  await Promise.all(workers);
+
+  return results.filter(Boolean); // Filter out any potential empty slots
 }
