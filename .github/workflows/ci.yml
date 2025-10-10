@@ -1,4 +1,4 @@
-name: Publish to npm
+name: 🚀 Ship it to npm!
 
 on:
   push:
@@ -13,30 +13,30 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout
+      - name: 🛎 Checkout the code (no stealing!)
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
+      - name: 🪄 Setup Node.js (abracadabra!)
         uses: actions/setup-node@v5
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Install dependencies (workspaces)
-        run: npm ci --workspaces
+      - name: 🍕 Install dependencies (snack time for npm)
+        run: npm ci
 
-      - name: Build all packages
-        run: npm run build --workspaces
+      - name: 🔨 Build all packages (make it shine)
+        run: npm run build
 
-      - name: Run tests
-        run: npm test --workspaces
+      - name: 🧪 Run tests (mad scientist mode)
+        run: npm test
 
-      - name: Publish @eusilvio/cep-lookup
+      - name: 📦 Publish @eusilvio/cep-lookup (send it to the wild!)
         run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @eusilvio/cep-lookup-react
+      - name: 🎯 Publish @eusilvio/cep-lookup-react (React rocket launch!)
         run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup-react
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
