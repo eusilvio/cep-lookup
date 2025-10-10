@@ -1,11 +1,11 @@
 {
   "name": "@eusilvio/cep-lookup-react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "React hook for cep-lookup.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
+    "clean": "rm -rf dist",
     "build": "npm run clean && tsc --build && esbuild src/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --minify --external:react --external:@eusilvio/cep-lookup",
     "test": "jest --passWithNoTests"
   },
