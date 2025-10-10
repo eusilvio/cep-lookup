@@ -99,6 +99,46 @@ cepLookup.lookup("01001-000", myMapper).then((customAddress: CustomAddress) => {
 });
 ```
 
+### Example 3: Bulk CEP Lookup
+
+For scenarios where you need to query multiple CEPs at once, you can use the `lookupCeps` function. It processes the CEPs in parallel with a configurable concurrency limit to avoid overwhelming the providers.
+
+```typescript
+import { lookupCeps, BulkCepResult } from "@eusilvio/cep-lookup";
+import {
+  viaCepProvider,
+  brasilApiProvider,
+} from "@eusilvio/cep-lookup/providers";
+
+const cepsToLookup = ["01001-000", "99999-999", "04538-132"];
+
+lookupCeps({
+  ceps: cepsToLookup,
+  providers: [viaCepProvider, brasilApiProvider],
+  concurrency: 5, // Optional: Number of parallel requests
+}).then((results: BulkCepResult[]) => {
+  console.log("Bulk lookup results:", results);
+  // Output:
+  // [
+  //   {
+  //     cep: '01001-000',
+  //     data: { cep: '01001-000', state: 'SP', city: 'São Paulo', ... },
+  //     provider: 'ViaCEP'
+  //   },
+  //   {
+  //     cep: '99999-999',
+  //     data: null,
+  //     error: [Error: All providers failed to find the CEP]
+  //   },
+  //   {
+  //     cep: '04538-132',
+  //     data: { cep: '04538-132', state: 'SP', city: 'São Paulo', ... },
+  //     provider: 'BrasilAPI'
+  //   }
+  // ]
+});
+```
+
 ## API
 
 ### `new CepLookup(options)`
@@ -116,6 +156,17 @@ Returns a `Promise` that resolves to the address in the default format (`Address
 
 - `cep` (string, **required**): The CEP to be queried.
 - `mapper` ((address: Address) => T, _optional_): A function that receives the default `Address` object and transforms it into a new format `T`.
+
+### `lookupCeps(options): Promise<BulkCepResult[]>`
+
+Looks up multiple CEPs in bulk. Returns a `Promise` that resolves to an array of `BulkCepResult` objects, one for each queried CEP.
+
+- `options`: A configuration object extending the `CepLookup` options.
+  - `ceps` (string[], **required**): An array of CEP strings to be queried.
+  - `providers` (Provider[], **required**): An array of providers.
+  - `concurrency` (number, _optional_): The number of parallel requests to make. Defaults to `5`.
+  - `fetcher` (Fetcher, _optional_): A custom fetch function.
+  - `cache` (Cache, _optional_): A cache instance.
 
 ## Examples
 

@@ -51,3 +51,18 @@ export interface CepLookupOptions {
   fetcher?: Fetcher;
   cache?: Cache;
 }
+
+/**
+ * @interface BulkCepResult
+ * @description Represents the result for a single CEP in a bulk lookup operation.
+ * @property {string} cep - The original CEP string.
+ * @property {Address | null} data - The address data if the lookup was successful, otherwise null.
+ * @property {string} [provider] - The name of the provider that successfully resolved the address.
+ * @property {Error} [error] - An error object if the lookup failed for this specific CEP.
+ */
+export interface BulkCepResult {
+  cep: string;
+  data: Address | null;
+  provider?: string;
+  error?: Error;
+}

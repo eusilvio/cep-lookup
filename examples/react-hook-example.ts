@@ -1,8 +1,10 @@
-
-import { useState, useCallback } from "react";
-import axios from "axios";
-import { CepLookup, Address } from "@eusilvio/cep-lookup";
-import { viaCepProvider, brasilApiProvider, apicepProvider } from "@eusilvio/cep-lookup/providers";
+import { Address, CepLookup } from "@eusilvio/cep-lookup";
+import {
+  apicepProvider,
+  brasilApiProvider,
+  viaCepProvider,
+} from "@eusilvio/cep-lookup/providers";
+import { useCallback, useState } from "react";
 
 // Create an instance of CepLookup outside the hook to avoid re-creation on every render
 const cepLookup = new CepLookup({

@@ -1,8 +1,10 @@
-
+import { Address, CepLookup } from "@eusilvio/cep-lookup";
+import {
+  apicepProvider,
+  brasilApiProvider,
+  viaCepProvider,
+} from "@eusilvio/cep-lookup/providers";
 import React, { useState } from "react";
-import axios from "axios";
-import { CepLookup, Address } from "@eusilvio/cep-lookup";
-import { viaCepProvider, brasilApiProvider, apicepProvider } from "@eusilvio/cep-lookup/providers";
 
 // 1. Create an instance of CepLookup (fetcher is now optional and defaults to global fetch)
 const cepLookup = new CepLookup({
