@@ -163,6 +163,9 @@ export class CepLookup {
     });
 
     try {
+      if (promises.length === 1) {
+        return await promises[0];
+      }
       return await Promise.any(promises);
     } finally {
       controller.abort();

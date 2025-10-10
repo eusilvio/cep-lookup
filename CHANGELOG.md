@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2025-10-10
+
+### Fixed
+- **Single Provider Rejection**: Fixed an issue where `lookup` would throw an `AggregateError` when a single provider failed, instead of the expected `Error`. The logic now awaits the promise directly in single-provider scenarios, ensuring consistent error handling.
+
 ## [2.0.0] - 2025-10-10
 
 ### BREAKING CHANGE
