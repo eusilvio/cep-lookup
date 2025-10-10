@@ -118,7 +118,7 @@ describe("cep-lookup", () => {
       });
 
       await expect(cepLookup.lookup(cep)).rejects.toThrow(
-        "Invalid CEP. It must have 8 digits."
+        "Invalid CEP format. Use either NNNNNNNN or NNNNN-NNN."
       );
     });
 
@@ -325,6 +325,58 @@ describe("cep-lookup", () => {
         // Second lookup
         await cepLookup.lookup(cep);
         expect(mockFetcher).toHaveBeenCalledTimes(2); // Should be called again
+      });
+    });
+
+    describe("Observability Events", () => {
+      it("should emit a 'success' event when a provider succeeds", async () => {
+        const successListener = jest.fn();
+        const cepLookup = new CepLookup({ providers: [viaCepProvider] });
+        cepLookup.on('success', successListener);
+
+        await cepLookup.lookup("01001-000");
+
+        expect(successListener).toHaveBeenCalledTimes(1);
+        expect(successListener).toHaveBeenCalledWith(expect.objectContaining({
+          provider: "ViaCEP",
+          cep: "01001000",
+          address: expect.any(Object),
+          duration: expect.any(Number),
+        }));
+      });
+
+      it("should emit a 'failure' event when a provider fails", async () => {
+        const failureListener = jest.fn();
+        mockFetch.mockRejectedValue(new Error("Network Error"));
+
+        const cepLookup = new CepLookup({ providers: [viaCepProvider] });
+        cepLookup.on('failure', failureListener);
+
+        await expect(cepLookup.lookup("01001-000")).rejects.toThrow();
+
+        expect(failureListener).toHaveBeenCalledTimes(1);
+        expect(failureListener).toHaveBeenCalledWith(expect.objectContaining({
+          provider: "ViaCEP",
+          cep: "01001000",
+          error: expect.any(Error),
+          duration: expect.any(Number),
+        }));
+      });
+
+      it("should emit a 'cache:hit' event when a CEP is found in cache", async () => {
+        const cache = new InMemoryCache();
+        const cepLookup = new CepLookup({ providers: [viaCepProvider], cache });
+        const cacheHitListener = jest.fn();
+        cepLookup.on('cache:hit', cacheHitListener);
+
+        // First lookup to populate cache
+        await cepLookup.lookup("01001-000");
+        expect(cacheHitListener).not.toHaveBeenCalled();
+
+        // Second lookup
+        await cepLookup.lookup("01001-000");
+        expect(cacheHitListener).toHaveBeenCalledTimes(1);
+        expect(cacheHitListener).toHaveBeenCalledWith({ cep: "01001000" });
       });
     });
   });
