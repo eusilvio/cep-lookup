@@ -19,6 +19,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npm publish --provenance --ignore-scripts
+      - run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup
+      - run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup-react
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

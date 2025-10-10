@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2025-10-10
+
+### Added
+- **Bulk Lookup Method**: The `CepLookup` class now has a `lookupCeps` method, allowing for efficient bulk CEP lookups using a class instance.
+
+### Changed
+- **API Refactoring**: The bulk lookup functionality has been refactored from a standalone `lookupCeps` function to a method of the `CepLookup` class. This improves API consistency and state management.
+
+### Deprecated
+- The standalone `lookupCep` and `lookupCeps` functions are now deprecated and will be removed in a future version. Please use the methods on a `CepLookup` instance instead.
+
+
 ## [2.0.1] - 2025-10-10
 
 ### Fixed
