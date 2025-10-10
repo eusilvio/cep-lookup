@@ -50,6 +50,18 @@ export interface CepLookupOptions {
   providers: Provider[];
   fetcher?: Fetcher;
   cache?: Cache;
+  rateLimit?: RateLimitOptions;
+}
+
+/**
+ * @interface RateLimitOptions
+ * @description Options for configuring the internal rate limiter.
+ * @property {number} requests - The maximum number of requests allowed within the time window.
+ * @property {number} per - The time window in milliseconds.
+ */
+export interface RateLimitOptions {
+  requests: number;
+  per: number;
 }
 
 /**

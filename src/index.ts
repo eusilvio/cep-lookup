@@ -1,8 +1,8 @@
 
-import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult } from "./types";
+import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions } from "./types";
 import { Cache, InMemoryCache } from "./cache";
 
-export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache, BulkCepResult };
+export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache, BulkCepResult, RateLimitOptions };
 
 /**
  * @function validateCep
@@ -12,11 +12,27 @@ export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache, Bul
  * @throws {Error} If the CEP is invalid (not 8 digits after cleaning).
  */
 function validateCep(cep: string): string {
-  const cleanedCep = cep.replace(/\D/g, "");
-  if (cleanedCep.length !== 8) {
-    throw new Error("Invalid CEP. It must have 8 digits.");
+  const cepRegex = /^(\d{8}|\d{5}-\d{3})$/;
+  if (!cepRegex.test(cep)) {
+    throw new Error("Invalid CEP format. Use either NNNNNNNN or NNNNN-NNN.");
   }
-  return cleanedCep;
+  return cep.replace("-", "");
+}
+
+/**
+ * @function sanitizeAddress
+ * @description Trims whitespace from all string properties of an address object.
+ * @param {Address} address - The address object to sanitize.
+ * @returns {Address} The sanitized address object.
+ */
+function sanitizeAddress(address: Address): Address {
+  const sanitized = { ...address };
+  for (const key in sanitized) {
+    if (typeof sanitized[key as keyof Address] === 'string') {
+      (sanitized as any)[key] = (sanitized[key as keyof Address] as string).trim();
+    }
+  }
+  return sanitized;
 }
 
 /**
@@ -28,6 +44,8 @@ export class CepLookup {
   private providers: Provider[];
   private fetcher: Fetcher;
   private cache?: Cache;
+  private rateLimit?: RateLimitOptions;
+  private requestTimestamps: number[] = [];
 
   /**
    * @constructor
@@ -43,6 +61,29 @@ export class CepLookup {
       return response.json();
     });
     this.cache = options.cache;
+    this.rateLimit = options.rateLimit;
+  }
+
+  private checkRateLimit(): void {
+    if (!this.rateLimit) {
+      return;
+    }
+
+    const now = Date.now();
+    const windowStart = now - this.rateLimit.per;
+
+    // Remove timestamps older than the window
+    this.requestTimestamps = this.requestTimestamps.filter(
+      (timestamp) => timestamp > windowStart
+    );
+
+    if (this.requestTimestamps.length >= this.rateLimit.requests) {
+      throw new Error(
+        `Rate limit exceeded: ${this.rateLimit.requests} requests per ${this.rateLimit.per}ms.`
+      );
+    }
+
+    this.requestTimestamps.push(now);
   }
 
   /**
@@ -55,6 +96,8 @@ export class CepLookup {
    * @throws {Error} If the CEP is invalid or if all providers fail to find the CEP.
    */
   async lookup<T = Address>(cep: string, mapper?: (address: Address) => T): Promise<T> {
+    this.checkRateLimit(); // Enforce rate limit
+
     const cleanedCep = validateCep(cep);
 
     if (this.cache) {
@@ -91,10 +134,11 @@ export class CepLookup {
       const fetchPromise = this.fetcher(url, signal)
         .then((response) => provider.transform(response))
         .then((address) => {
+          const sanitizedAddress = sanitizeAddress(address);
           if (this.cache) {
-            this.cache.set(cleanedCep, address);
+            this.cache.set(cleanedCep, sanitizedAddress);
           }
-          return mapper ? mapper(address) : (address as unknown as T);
+          return mapper ? mapper(sanitizedAddress) : (sanitizedAddress as unknown as T);
         });
 
       return Promise.race([fetchPromise, timeoutPromise]);

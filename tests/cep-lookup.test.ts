@@ -1,4 +1,3 @@
-
 import { CepLookup, lookupCep, InMemoryCache } from "../src";
 import { viaCepProvider, brasilApiProvider, apicepProvider } from "../src/providers";
 import { Address } from "../src/types";
@@ -108,18 +107,6 @@ describe("cep-lookup", () => {
         source: "ViaCEP",
       });
       expect(mockFetcher).toHaveBeenCalledTimes(1);
-    });
-
-    it("should throw an error for an invalid CEP", async () => {
-      const cep = "12345-67";
-      const cepLookup = new CepLookup({
-        providers: [viaCepProvider],
-        fetcher: jest.fn(),
-      });
-
-      await expect(cepLookup.lookup(cep)).rejects.toThrow(
-        "Invalid CEP. It must have 8 digits."
-      );
     });
 
     it("should use the default fetcher if none is provided", async () => {
@@ -247,6 +234,100 @@ describe("cep-lookup", () => {
       expect(mockFetcher).toHaveBeenCalledTimes(2); // Both requests are initiated
       expect(abortSpy).toHaveBeenCalledTimes(1); // One request should have been aborted
       jest.useRealTimers();
+    });
+
+    describe("Security and Validation Features", () => {
+      it("should throw an error for invalid CEP formats", async () => {
+        const cepLookup = new CepLookup({ providers: [viaCepProvider] });
+        const expectedError = "Invalid CEP format. Use either NNNNNNNN or NNNNN-NNN.";
+
+        await expect(cepLookup.lookup("12345-67")).rejects.toThrow(expectedError);
+        await expect(cepLookup.lookup("1234567")).rejects.toThrow(expectedError);
+        await expect(cepLookup.lookup("123456789")).rejects.toThrow(expectedError);
+        await expect(cepLookup.lookup("12345 678")).rejects.toThrow(expectedError);
+        await expect(cepLookup.lookup("abcdefgh")).rejects.toThrow(expectedError);
+      });
+
+      it("should successfully validate correct CEP formats", async () => {
+        const cepLookup = new CepLookup({ providers: [viaCepProvider] });
+        // These should not throw an error, the mock fetcher will be called.
+        await expect(cepLookup.lookup("01001000")).resolves.toBeDefined();
+        await expect(cepLookup.lookup("01001-000")).resolves.toBeDefined();
+      });
+
+      it("should sanitize address fields by trimming whitespace", async () => {
+        const cep = "01001-000";
+        const mockFetcher = jest.fn().mockResolvedValue({
+          cep: " 01001-000 ",
+          logradouro: "  Praça da Sé  ",
+          bairro: " Sé ",
+          localidade: "São Paulo",
+          uf: "SP",
+        });
+        const cepLookup = new CepLookup({ providers: [viaCepProvider], fetcher: mockFetcher });
+
+        const address = await cepLookup.lookup(cep);
+
+        expect(address.cep).toBe("01001-000");
+        expect(address.street).toBe("Praça da Sé");
+        expect(address.neighborhood).toBe("Sé");
+      });
+
+      describe("Rate Limiting", () => {
+        beforeEach(() => {
+          jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+          jest.useRealTimers();
+        });
+
+        it("should allow requests within the rate limit", async () => {
+          const cepLookup = new CepLookup({
+            providers: [viaCepProvider],
+            rateLimit: { requests: 3, per: 1000 },
+          });
+
+          await cepLookup.lookup("11111111");
+          await cepLookup.lookup("22222222");
+          await cepLookup.lookup("33333333");
+
+          // All 3 should succeed
+          expect(mockFetch).toHaveBeenCalledTimes(3);
+        });
+
+        it("should throw an error when rate limit is exceeded", async () => {
+          const cepLookup = new CepLookup({
+            providers: [viaCepProvider],
+            rateLimit: { requests: 2, per: 1000 },
+          });
+
+          await cepLookup.lookup("11111111");
+          await cepLookup.lookup("22222222");
+
+          await expect(cepLookup.lookup("33333333")).rejects.toThrow(
+            "Rate limit exceeded: 2 requests per 1000ms."
+          );
+        });
+
+        it("should allow requests again after the time window resets", async () => {
+          const cepLookup = new CepLookup({
+            providers: [viaCepProvider],
+            rateLimit: { requests: 2, per: 1000 },
+          });
+
+          await cepLookup.lookup("11111111");
+          await cepLookup.lookup("22222222");
+
+          await expect(cepLookup.lookup("33333333")).rejects.toThrow("Rate limit exceeded");
+
+          // Advance time by 1 second
+          jest.advanceTimersByTime(1001);
+
+          // This request should now succeed
+          await expect(cepLookup.lookup("44444444")).resolves.toBeDefined();
+        });
+      });
     });
 
     describe("Cache", () => {
