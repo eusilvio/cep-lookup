@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "rootDir": "src",
+    "jsx": "react-jsx",
+    "composite": true,
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "module": "esnext"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.test.ts", "dist"],
+  "references": [{ "path": "../cep-lookup" }]
+}

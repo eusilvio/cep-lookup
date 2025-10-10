@@ -17,6 +17,7 @@ Its agnostic design allows it to be used in any JavaScript environment with any 
 
 - **Multiple Providers (Race Strategy)**: Queries multiple CEP APIs at the same time and uses the first valid response.
 - **Class-Based API**: Create a reusable instance with your settings.
+- **Bulk Lookups**: Efficiently look up multiple CEPs with a single method call.
 - **Customizable Return Format**: Provide a `mapper` function to transform the address data into any format your application needs.
 - **HTTP Client Agnostic**: You provide the fetch function, giving you full control over the requests. Defaults to global `fetch` if not provided.
 - **Modular and Extensible Architecture**: Adding a new CEP data source is trivial.
@@ -31,7 +32,7 @@ npm install @eusilvio/cep-lookup
 
 ## How to Use
 
-`@eusilvio/cep-lookup` is designed to be straightforward. You can create a reusable instance of the `CepLookup` class with your desired settings or use the `lookupCep` function for a quick, one-off lookup. The library also includes a simple in-memory cache to avoid repeated requests, which you can use or replace with your own implementation.
+`@eusilvio/cep-lookup` is designed to be straightforward. You create a reusable instance of the `CepLookup` class with your desired settings and use its methods to look up single or multiple CEPs. The library also includes a simple in-memory cache to avoid repeated requests, which you can use or replace with your own implementation.
 
 ### Example 1: Basic Usage
 
@@ -42,7 +43,7 @@ import {
   brasilApiProvider,
 } from "@eusilvio/cep-lookup/providers";
 
-// 1. Create an instance of CepLookup (fetcher is now optional and defaults to global fetch)
+// 1. Create an instance of CepLookup
 const cepLookup = new CepLookup({
   providers: [viaCepProvider, brasilApiProvider],
 });
@@ -101,10 +102,10 @@ cepLookup.lookup("01001-000", myMapper).then((customAddress: CustomAddress) => {
 
 ### Example 3: Bulk CEP Lookup
 
-For scenarios where you need to query multiple CEPs at once, you can use the `lookupCeps` function. It processes the CEPs in parallel with a configurable concurrency limit to avoid overwhelming the providers.
+For scenarios where you need to query multiple CEPs at once, you can use the `lookupCeps` method. It processes the CEPs in parallel with a configurable concurrency limit to avoid overwhelming the providers.
 
 ```typescript
-import { lookupCeps, BulkCepResult } from "@eusilvio/cep-lookup";
+import { CepLookup, BulkCepResult } from "@eusilvio/cep-lookup";
 import {
   viaCepProvider,
   brasilApiProvider,
@@ -112,11 +113,13 @@ import {
 
 const cepsToLookup = ["01001-000", "99999-999", "04538-132"];
 
-lookupCeps({
-  ceps: cepsToLookup,
+// 1. Create an instance with your settings
+const cepLookup = new CepLookup({
   providers: [viaCepProvider, brasilApiProvider],
-  concurrency: 5, // Optional: Number of parallel requests
-}).then((results: BulkCepResult[]) => {
+});
+
+// 2. Look up multiple CEPs
+cepLookup.lookupCeps(cepsToLookup, { concurrency: 2 }).then((results: BulkCepResult[]) => {
   console.log("Bulk lookup results:", results);
   // Output:
   // [
@@ -158,16 +161,16 @@ Returns a `Promise` that resolves to the address in the default format (`Address
 - `cep` (string, **required**): The CEP to be queried.
 - `mapper` ((address: Address) => T, _optional_): A function that receives the default `Address` object and transforms it into a new format `T`.
 
-### `lookupCeps(options): Promise<BulkCepResult[]>`
+### `cepLookup.lookupCeps(ceps, options?): Promise<BulkCepResult[]>`
 
 Looks up multiple CEPs in bulk. Returns a `Promise` that resolves to an array of `BulkCepResult` objects, one for each queried CEP.
 
-- `options`: A configuration object extending the `CepLookup` options.
-  - `ceps` (string[], **required**): An array of CEP strings to be queried.
-  - `providers` (Provider[], **required**): An array of providers.
-  - `concurrency` (number, _optional_): The number of parallel requests to make. Defaults to `5`.
-  - `fetcher` (Fetcher, _optional_): A custom fetch function.
-  - `cache` (Cache, _optional_): A cache instance.
+- `ceps` (string[], **required**): An array of CEP strings to be queried.
+- `options` (object, _optional_): An options object.
+  - `concurrency` (number): The number of parallel requests to make. Defaults to `5`.
+
+> **Note on Deprecated Functions:**
+> Standalone `lookupCep` and `lookupCeps` functions are deprecated and will be removed in a future version. Please use the methods on a `CepLookup` instance instead.
 
 ### Observability Events API
 
@@ -203,6 +206,7 @@ cepLookup.lookup("01001-000");
 You can find more detailed examples in the `examples/` directory:
 
 - **Basic Usage**: `examples/example.ts`
+- **Bulk Lookup**: `examples/bulk-example.ts`
 - **Custom Provider**: `examples/custom-provider-example.ts`
 - **Node.js Usage**: `examples/node-example.ts`
 - **React Component**: `examples/react-example.tsx`

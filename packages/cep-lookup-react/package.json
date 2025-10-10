@@ -1,0 +1,58 @@
+{
+  "name": "@eusilvio/cep-lookup-react",
+  "version": "0.1.1",
+  "description": "React hook for cep-lookup.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "rm -rf dist && rm tsconfig.tsbuildinfo",
+    "build": "npm run clean && tsc --build && esbuild src/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --minify --external:react --external:@eusilvio/cep-lookup",
+    "test": "jest --passWithNoTests"
+  },
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "@eusilvio/cep-lookup": "^2.0.1",
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.4",
+    "@types/jest": "^30.0.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "@testing-library/react": "^15.0.7",
+    "@testing-library/jest-dom": "^6.9.1",
+    "esbuild": "^0.20.2"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eusilvio/cep-lookup.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eusilvio/cep-lookup/issues"
+  },
+  "homepage": "https://github.com/eusilvio/cep-lookup#readme",
+  "keywords": [
+    "cep",
+    "lookup",
+    "react",
+    "hook"
+  ],
+  "author": "Silvio Souza",
+  "sideEffects": false
+}

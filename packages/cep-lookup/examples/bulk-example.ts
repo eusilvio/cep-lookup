@@ -1,4 +1,4 @@
-import { BulkCepResult, InMemoryCache, lookupCeps } from "@eusilvio/cep-lookup";
+import { BulkCepResult, InMemoryCache, CepLookup } from "@eusilvio/cep-lookup";
 import { brasilApiProvider, viaCepProvider } from "@eusilvio/cep-lookup/providers";
 
 // Example showing how to use the bulk lookup feature `lookupCeps`.
@@ -16,12 +16,12 @@ async function runBulkExample() {
   // Using an InMemoryCache to demonstrate caching during bulk lookups.
   const cache = new InMemoryCache();
 
-  const results = await lookupCeps({
-    ceps: cepsToLookup,
+  const cepLookup = new CepLookup({
     providers: [viaCepProvider, brasilApiProvider],
     cache, // Pass the cache instance
-    concurrency: 2, // Limit to 2 parallel requests
   });
+
+  const results = await cepLookup.lookupCeps(cepsToLookup, 2); // Limit to 2 parallel requests
 
   console.log("\n--- Bulk Lookup Results ---");
 

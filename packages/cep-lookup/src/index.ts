@@ -171,45 +171,56 @@ export class CepLookup {
       controller.abort();
     }
   }
+
+  public async lookupCeps(ceps: string[], concurrency: number = 5): Promise<BulkCepResult[]> {
+    if (!ceps || ceps.length === 0) {
+      return [];
+    }
+
+    const results: BulkCepResult[] = new Array(ceps.length);
+    let cepIndex = 0;
+
+    const worker = async () => {
+      while (cepIndex < ceps.length) {
+        const currentIndex = cepIndex++;
+        if (currentIndex >= ceps.length) break;
+        const cep = ceps[currentIndex];
+        try {
+          const address = await this.lookup(cep);
+          if (address) {
+            results[currentIndex] = { cep, data: address, provider: address.service };
+          } else {
+            throw new Error('No address found');
+          }
+        } catch (error) {
+          results[currentIndex] = { cep, data: null, error: error as Error };
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, ceps.length) }, () => worker());
+    await Promise.all(workers);
+
+    return results.filter(Boolean);
+  }
 }
 
+/**
+ * @deprecated Use `new CepLookup(options).lookup(cep)` instead.
+ */
 export function lookupCep<T = Address>(options: CepLookupOptions & { cep: string, mapper?: (address: Address) => T }): Promise<T> {
+  console.warn("[cep-lookup] The standalone `lookupCep` function is deprecated and will be removed in a future version. Please use `new CepLookup(options).lookup(cep)` instead.");
   const { cep, providers, fetcher, mapper, cache, rateLimit } = options;
   const cepLookup = new CepLookup({ providers, fetcher, cache, rateLimit });
   return cepLookup.lookup(cep, mapper);
 }
 
+/**
+ * @deprecated Use `new CepLookup(options).lookupCeps(ceps)` instead.
+ */
 export async function lookupCeps(options: CepLookupOptions & { ceps: string[], concurrency?: number }): Promise<BulkCepResult[]> {
+  console.warn("[cep-lookup] The standalone `lookupCeps` function is deprecated and will be removed in a future version. Please use `new CepLookup(options).lookupCeps(ceps)` instead.");
   const { ceps, providers, fetcher, cache, concurrency = 5, rateLimit } = options;
-  if (!ceps || ceps.length === 0) {
-    return [];
-  }
-
   const cepLookup = new CepLookup({ providers, fetcher, cache, rateLimit });
-
-  const results: BulkCepResult[] = new Array(ceps.length);
-  let cepIndex = 0;
-
-  const worker = async () => {
-    while (cepIndex < ceps.length) {
-      const currentIndex = cepIndex++;
-      if (currentIndex >= ceps.length) break;
-      const cep = ceps[currentIndex];
-      try {
-        const address = await cepLookup.lookup(cep);
-        if (address) {
-          results[currentIndex] = { cep, data: address, provider: address.service };
-        } else {
-          throw new Error('No address found');
-        }
-      } catch (error) {
-        results[currentIndex] = { cep, data: null, error: error as Error };
-      }
-    }
-  };
-
-  const workers = Array.from({ length: Math.min(concurrency, ceps.length) }, () => worker());
-  await Promise.all(workers);
-
-  return results.filter(Boolean);
+  return cepLookup.lookupCeps(ceps, concurrency);
 }

@@ -1,19 +1,7 @@
-
 {
-  "compilerOptions": {
-    "target": "es2021",
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "outDir": "./dist",
-    "declaration": true,
-    "paths": {
-      "@eusilvio/cep-lookup": ["./src/index.ts"],
-      "@eusilvio/cep-lookup/*": ["./src/*"]
-    }
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.ts"]
+  "files": [],
+  "references": [
+    { "path": "packages/cep-lookup" },
+    { "path": "packages/cep-lookup-react" }
+  ]
 }

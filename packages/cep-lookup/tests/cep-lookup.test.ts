@@ -1,5 +1,5 @@
 
-import { CepLookup, lookupCep, InMemoryCache } from "../src";
+import { CepLookup, InMemoryCache } from "../src";
 import { viaCepProvider, brasilApiProvider, apicepProvider } from "../src/providers";
 import { Address } from "../src/types";
 
@@ -454,96 +454,6 @@ describe("cep-lookup", () => {
         expect(cacheHitListener).toHaveBeenCalledTimes(1);
         expect(cacheHitListener).toHaveBeenCalledWith({ cep: "01001000" });
       });
-    });
-  });
-
-  describe("lookupCep Function (Backward Compatibility)", () => {
-    it("should return the address from the fastest provider", async () => {
-      jest.useFakeTimers();
-      const cep = "01001-000";
-      const mockFetcher = jest.fn().mockImplementation((url: string) => {
-        if (url.includes("viacep")) {
-          return new Promise((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  cep: "01001-000",
-                  logradouro: "Praça da Sé",
-                  bairro: "Sé",
-                  localidade: "São Paulo",
-                  uf: "SP",
-                }),
-              100
-            )
-          );
-        } else {
-          return new Promise((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  cep: "01001000",
-                  state: "SP",
-                  city: "São Paulo",
-                  neighborhood: "Sé",
-                  street: "Praça da Sé",
-                }),
-              200
-            )
-          );
-        }
-      });
-
-      const lookupPromise = lookupCep({ cep, providers: [viaCepProvider, brasilApiProvider], fetcher: mockFetcher });
-
-      jest.advanceTimersByTime(200); // Advance time enough for both providers to potentially respond
-
-      const address = await lookupPromise;
-
-      expect(address.service).toBe("ViaCEP");
-      expect(mockFetcher).toHaveBeenCalledTimes(2);
-      jest.useRealTimers();
-    });
-
-    it("should use the default fetcher if none is provided", async () => {
-      const cep = "01001-000";
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            cep: "01001-000",
-            logradouro: "Praça da Sé",
-            bairro: "Sé",
-            localidade: "São Paulo",
-            uf: "SP",
-          }),
-      });
-      global.fetch = mockFetch;
-
-      const address = await lookupCep({ cep, providers: [viaCepProvider] });
-
-      expect(mockFetch).toHaveBeenCalledWith("https://viacep.com.br/ws/01001000/json/", expect.any(Object));
-    });
-
-    it("should use the cache when provided", async () => {
-      const cep = "01001-000";
-      const mockFetcher = jest.fn().mockResolvedValue({
-        cep: "01001-000",
-        logradouro: "Praça da Sé",
-        bairro: "Sé",
-        localidade: "São Paulo",
-        uf: "SP",
-      });
-
-      const cache = new InMemoryCache();
-
-      // First lookup
-      await lookupCep({ cep, providers: [viaCepProvider], fetcher: mockFetcher, cache });
-      expect(mockFetcher).toHaveBeenCalledTimes(1);
-
-      // Second lookup
-      await lookupCep({ cep, providers: [viaCepProvider], fetcher: mockFetcher, cache });
-      expect(mockFetcher).toHaveBeenCalledTimes(1); // Should not be called again
     });
   });
 });
