@@ -6,7 +6,12 @@
   "author": "Silvio Souza",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eusilvio/cep-lookup.git"
+    "url": "https://github.com/eusilvio/cep-lookup.git",
+    "directory": "packages/cep-lookup"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "exports": {
     ".": {
