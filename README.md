@@ -149,6 +149,7 @@ Creates a new `CepLookup` instance.
   - `providers` (Provider[], **required**): An array of providers that will be queried.
   - `fetcher` (Fetcher, _optional_): Your asynchronous function that fetches data from a URL. Defaults to global `fetch` if not provided.
   - `cache` (Cache, _optional_): An instance of a cache that implements the `Cache` interface. Use `InMemoryCache` for a simple in-memory cache.
+  - `rateLimit` ({ requests: number, per: number }, _optional_): Configures an in-memory rate limiter (e.g., `{ requests: 10, per: 1000 }` for 10 requests per second).
 
 ### `cepLookup.lookup<T = Address>(cep, mapper?): Promise<T>`
 
@@ -167,6 +168,35 @@ Looks up multiple CEPs in bulk. Returns a `Promise` that resolves to an array of
   - `concurrency` (number, _optional_): The number of parallel requests to make. Defaults to `5`.
   - `fetcher` (Fetcher, _optional_): A custom fetch function.
   - `cache` (Cache, _optional_): A cache instance.
+
+### Observability Events API
+
+Version 2.0.0 introduced an event-based API to monitor the library's behavior. You can listen to events to gather metrics on provider performance, latency, and errors.
+
+```typescript
+const cepLookup = new CepLookup({ providers: [...] });
+
+// Fired for each successful provider response
+cepLookup.on('success', ({ provider, cep, duration }) => {
+  console.log(`[${provider}] Success for CEP ${cep} in ${duration}ms`);
+  // myMetrics.timing('cep.latency', duration, { provider });
+});
+
+// Fired for each failed provider response
+cepLookup.on('failure', ({ provider, cep, error }) => {
+  console.error(`[${provider}] Failure for CEP ${cep}: ${error.message}`);
+  // myMetrics.increment('cep.failure', { provider });
+});
+
+// Fired when a CEP is resolved from the cache
+cepLookup.on('cache:hit', ({ cep }) => {
+  console.log(`[Cache] CEP ${cep} found in cache.`);
+  // myMetrics.increment('cep.cache_hit');
+});
+
+// The lookup call remains the same
+cepLookup.lookup("01001-000");
+```
 
 ## Examples
 

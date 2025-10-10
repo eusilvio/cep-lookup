@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.0] - 2025-10-10
+## [2.0.0] - 2025-10-10
+
+### BREAKING CHANGE
+- **Strict CEP Validation**: Input validation now strictly requires the CEP to be in the `NNNNNNNN` or `NNNNN-NNN` format. Any other format will now throw an error, which may break integrations that were passing unclean CEP strings.
 
 ### Added
-- **Strict CEP Validation**: Input validation now strictly requires the `NNNNNNNN` or `NNNNN-NNN` format, rejecting any other pattern.
+- **Observability Events API**: The `CepLookup` class now emits `success`, `failure`, and `cache:hit` events, allowing users to build robust metrics and monitoring systems.
 - **Rate Limiting**: Implemented a configurable in-memory rate limiter to prevent API abuse. This can be configured via the `rateLimit` option in the `CepLookup` constructor.
+
+### Changed
 - **Data Sanitization**: All string fields in the returned address object are now automatically trimmed of leading/trailing whitespace to improve data quality.
 
 ### Fixed
