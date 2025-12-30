@@ -1,60 +1,48 @@
-import { CepProvider, useCepLookup } from "@eusilvio/cep-lookup-react";
-import React, { useState } from "react";
+import React, { useState } from 'react';
+import { CepProvider, useCepLookup } from '@eusilvio/cep-lookup-react';
+import { Address } from '@eusilvio/cep-lookup';
 
-function CepLookupComponent(): JSX.Element {
-  const [cep, setCep] = useState("01001-000");
-  const { address, error, loading } = useCepLookup(cep);
+// Custom interface for mapped address
+interface SimplifiedAddress {
+  display: string;
+  cep: string;
+}
+
+const mapper = (addr: Address): SimplifiedAddress => ({
+  display: `${addr.street}, ${addr.neighborhood} - ${addr.city}/${addr.state}`,
+  cep: addr.cep,
+});
+
+const CepSearch = () => {
+  const [input, setInput] = useState('');
+  // The hook automatically infers SimplifiedAddress because of the mapper in CepProvider
+  const { address, loading, error } = useCepLookup<SimplifiedAddress>(input);
 
   return (
     <div>
-      <h1>CEP Lookup</h1>
-      <input
-        type="text"
-        value={cep}
-        onChange={(e) => setCep(e.target.value)}
-        placeholder="Enter CEP"
+      <input 
+        placeholder="Digite o CEP"
+        value={input} 
+        onChange={(e) => setInput(e.target.value)} 
       />
-
-      {loading && <p>Loading...</p>}
-
+      {loading && <span>Buscando...</span>}
+      {error && <span style={{ color: 'red' }}>{error.message}</span>}
       {address && (
         <div>
-          <h2>Address</h2>
-          <p>
-            <strong>CEP:</strong> {address.cep}
-          </p>
-          <p>
-            <strong>Street:</strong> {address.street}
-          </p>
-          <p>
-            <strong>Neighborhood:</strong> {address.neighborhood}
-          </p>
-          <p>
-            <strong>City:</strong> {address.city}
-          </p>
-          <p>
-            <strong>State:</strong> {address.state}
-          </p>
-          <p>
-            <strong>Service:</strong> {address.service}
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <div>
-          <h2>Error</h2>
-          <p>{error.message}</p>
+          <p>CEP Normalizado: {address.cep}</p>
+          <p>Endereço: {address.display}</p>
         </div>
       )}
     </div>
   );
-}
+};
 
-export function App(): JSX.Element {
-  return (
-    <CepProvider>
-      <CepLookupComponent />
-    </CepProvider>
-  );
-}
+export const App = () => (
+  <CepProvider 
+    mapper={mapper}
+    onSuccess={(ev) => console.log(`Sucesso via ${ev.provider} em ${ev.duration}ms`)}
+    onFailure={(ev) => console.error(`Falha no ${ev.provider}:`, ev.error)}
+  >
+    <CepSearch />
+  </CepProvider>
+);
