@@ -32,16 +32,16 @@ jobs:
         run: npm test
 
       - name: 📦 Publish @eusilvio/cep-lookup (send it to the wild!)
-        run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup
+        run: npm publish --access public --provenance --ignore-scripts -w @eusilvio/cep-lookup
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 🎯 Publish @eusilvio/cep-lookup-react (React rocket launch!)
-        run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup-react
+        run: npm publish --access public --provenance --ignore-scripts -w @eusilvio/cep-lookup-react
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 🧪 Publish @eusilvio/cep-lookup-vue (Vue spaceship launch!)
-        run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup-vue
+        run: npm publish --access public --provenance --ignore-scripts -w @eusilvio/cep-lookup-vue
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

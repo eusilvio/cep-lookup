@@ -15,6 +15,10 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "npm run clean && tsc --build && esbuild src/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --out-extension:.js=.cjs --minify --external:vue --external:@eusilvio/cep-lookup && esbuild src/index.ts --bundle --platform=neutral --format=esm --outdir=dist --out-extension:.js=.mjs --minify --external:vue --external:@eusilvio/cep-lookup",
