@@ -103,7 +103,7 @@ describe("cep-lookup", () => {
       const customAddress = await cepLookup.lookup(cep, mapper);
 
       expect(customAddress).toEqual({
-        postalCode: "01001-000",
+        postalCode: "01001000",
         fullAddress: "Praça da Sé, Sé - São Paulo/SP",
         source: "ViaCEP",
       });
@@ -263,7 +263,7 @@ describe("cep-lookup", () => {
 
         const address = await cepLookup.lookup(cep);
 
-        expect(address.cep).toBe("01001-000");
+        expect(address.cep).toBe("01001000");
         expect(address.street).toBe("Praça da Sé");
         expect(address.neighborhood).toBe("Sé");
       });

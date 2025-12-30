@@ -10,6 +10,8 @@
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
+    "find-up": "^8.0.0",
+    "pkg-dir": "^8.0.0",
     "typescript": "^5.9.2"
   }
 }

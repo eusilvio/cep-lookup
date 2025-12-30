@@ -11,24 +11,25 @@ class EventEmitter {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }
-    this.listeners[eventName]!.push(listener);
+    (this.listeners[eventName] as EventListener<T>[]).push(listener);
   }
 
   public off<T extends EventName>(eventName: T, listener: EventListener<T>): void {
-    if (!this.listeners[eventName]) {
+    const listeners = this.listeners[eventName];
+    if (!listeners) {
       return;
     }
-    // Use a type assertion to work around a complex generic issue
-    this.listeners[eventName] = (this.listeners[eventName] as any[]).filter(
+    this.listeners[eventName] = (listeners as EventListener<T>[]).filter(
       (l) => l !== listener
-    );
+    ) as any; // Cast back to the internal storage type safely
   }
 
   public emit<T extends EventName>(eventName: T, payload: EventMap[T]): void {
-    if (!this.listeners[eventName]) {
+    const listeners = this.listeners[eventName];
+    if (!listeners) {
       return;
     }
-    this.listeners[eventName]!.forEach((listener) => listener(payload));
+    (listeners as EventListener<T>[]).forEach((listener) => listener(payload));
   }
 }
 
@@ -55,11 +56,12 @@ function validateCep(cep: string): string {
  */
 function sanitizeAddress(address: Address): Address {
   const sanitized = { ...address };
-  for (const key in sanitized) {
-    if (typeof sanitized[key as keyof Address] === 'string') {
-      (sanitized as any)[key] = (sanitized[key as keyof Address] as string).trim();
+  (Object.keys(sanitized) as Array<keyof Address>).forEach((key) => {
+    const value = sanitized[key];
+    if (typeof value === "string") {
+      (sanitized[key] as string) = value.trim();
     }
-  }
+  });
   return sanitized;
 }
 
@@ -116,7 +118,7 @@ export class CepLookup {
       const cachedAddress = this.cache.get(cleanedCep);
       if (cachedAddress) {
         this.emitter.emit('cache:hit', { cep: cleanedCep });
-        return Promise.resolve(mapper ? mapper(cachedAddress) : (cachedAddress as unknown as T));
+        return mapper ? mapper(cachedAddress) : (cachedAddress as Address as T);
       }
     }
 
@@ -149,7 +151,7 @@ export class CepLookup {
           if (this.cache) {
             this.cache.set(cleanedCep, sanitizedAddress);
           }
-          return mapper ? mapper(sanitizedAddress) : (sanitizedAddress as unknown as T);
+          return mapper ? mapper(sanitizedAddress) : (sanitizedAddress as Address as T);
         })
         .catch((error) => {
           const duration = Date.now() - startTime;

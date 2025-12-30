@@ -11,12 +11,15 @@ export const apicepProvider: Provider = {
   name: "ApiCEP",
   buildUrl: (cep: string) => `https://cdn.apicep.com/file/apicep/${cep}.json`,
   transform: (response: any): Address => {
+    if (!response || response.status !== 200) {
+      throw new Error(response?.message || "CEP not found");
+    }
     return {
-      cep: response.code,
-      state: response.state,
-      city: response.city,
-      neighborhood: response.district,
-      street: response.address,
+      cep: (response.code || "").replace("-", ""),
+      state: response.state || "",
+      city: response.city || "",
+      neighborhood: response.district || "",
+      street: response.address || "",
       service: "ApiCEP",
     };
   },

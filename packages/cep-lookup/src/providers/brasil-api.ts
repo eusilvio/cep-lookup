@@ -11,12 +11,15 @@ export const brasilApiProvider: Provider = {
   name: "BrasilAPI",
   buildUrl: (cep: string) => `https://brasilapi.com.br/api/cep/v1/${cep}`,
   transform: (response: any): Address => {
+    if (!response || response.errors || response.message) {
+      throw new Error(response.message || "CEP not found");
+    }
     return {
-      cep: response.cep,
-      state: response.state,
-      city: response.city,
-      neighborhood: response.neighborhood,
-      street: response.street,
+      cep: (response.cep || "").replace("-", ""),
+      state: response.state || "",
+      city: response.city || "",
+      neighborhood: response.neighborhood || "",
+      street: response.street || "",
       service: "BrasilAPI",
     };
   },
