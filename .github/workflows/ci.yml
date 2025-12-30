@@ -40,3 +40,8 @@ jobs:
         run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup-react
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 🧪 Publish @eusilvio/cep-lookup-vue (Vue spaceship launch!)
+        run: npm publish --provenance --ignore-scripts -w @eusilvio/cep-lookup-vue
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
