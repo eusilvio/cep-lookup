@@ -13,8 +13,8 @@ A modern, flexible, and agnostic Brazilian CEP (postal code) lookup library. Que
 - **🛡️ Built-in Security**: Robust data validation, sanitization, and automatic CEP normalization.
 - **🚀 High Performance**: Sub-microsecond cache resolution (~2.5M ops/s).
 - **📦 Dual-Build**: Native support for ESM (`.mjs`) and CommonJS (`.cjs`).
-- **🔌 Framework Ready**: Official hooks for React and easily extensible to others.
-- **📊 Observability**: Built-in EventEmitter for monitoring success, failure, and cache hits.
+- **🔌 Framework Ready**: Official hooks for React and Vue 3, and easily extensible to others.
+- **📦 Dual-Build**: Native support for ESM (`.mjs`) and CommonJS (`.cjs`).
 
 ---
 
@@ -35,6 +35,7 @@ A modern, flexible, and agnostic Brazilian CEP (postal code) lookup library. Que
 
 - [`@eusilvio/cep-lookup`](packages/cep-lookup): Core library (agnostic).
 - [`@eusilvio/cep-lookup-react`](packages/cep-lookup-react): Official React hooks and provider.
+- [`@eusilvio/cep-lookup-vue`](packages/cep-lookup-vue): Official Vue 3 composition API hooks.
 
 ---
 
