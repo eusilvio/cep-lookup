@@ -52,5 +52,9 @@ export const useCepLookup = <T = Address>(cep: string, delay = 500) => {
     };
   }, [cep, delay, cepLookup, mapper]);
 
-  return { address, error, loading };
+  const warmup = () => {
+    return cepLookup.warmup();
+  };
+
+  return { address, error, loading, warmup };
 };
