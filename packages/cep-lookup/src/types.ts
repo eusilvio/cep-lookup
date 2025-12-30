@@ -48,6 +48,7 @@ export interface CepLookupOptions {
   fetcher?: Fetcher;
   cache?: Cache;
   rateLimit?: RateLimitOptions;
+  staggerDelay?: number;
 }
 
 /**

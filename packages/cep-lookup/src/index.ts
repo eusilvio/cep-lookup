@@ -72,14 +72,17 @@ function sanitizeAddress(address: Address): Address {
  */
 export class CepLookup {
   private providers: Provider[];
+  private sortedProviders: Provider[];
   private fetcher: Fetcher;
   private cache?: Cache;
   private rateLimit?: RateLimitOptions;
+  private staggerDelay: number;
   private requestTimestamps: number[] = [];
   private emitter: EventEmitter;
 
   constructor(options: CepLookupOptions) {
     this.providers = options.providers;
+    this.sortedProviders = [...options.providers];
     this.emitter = new EventEmitter();
     this.fetcher = options.fetcher || (async (url: string, signal?: AbortSignal) => {
       const response = await fetch(url, { signal });
@@ -90,6 +93,7 @@ export class CepLookup {
     });
     this.cache = options.cache;
     this.rateLimit = options.rateLimit;
+    this.staggerDelay = options.staggerDelay ?? 100;
   }
 
   public on<T extends EventName>(eventName: T, listener: EventListener<T>): void {
@@ -98,6 +102,41 @@ export class CepLookup {
 
   public off<T extends EventName>(eventName: T, listener: EventListener<T>): void {
     this.emitter.off(eventName, listener);
+  }
+
+  /**
+   * @method warmup
+   * @description Pings providers to determine the fastest one and updates the internal priority order.
+   * Useful to call on UI events like 'focus' on the CEP input.
+   */
+  public async warmup(): Promise<void> {
+    const controlCep = "01001000"; // Praça da Sé (Fixed Valid CEP)
+    const controller = new AbortController();
+    
+    const race = this.providers.map(async (provider) => {
+      const start = Date.now();
+      try {
+        const url = provider.buildUrl(controlCep);
+        await this.fetcher(url, controller.signal);
+        // We don't care about the result content, just that it didn't throw network error
+        return { provider, duration: Date.now() - start, error: false };
+      } catch (e) {
+        return { provider, duration: Infinity, error: true };
+      }
+    });
+
+    // Wait for all to finish (or fail)
+    const results = await Promise.all(race);
+    
+    // Sort providers: functional/fastest first
+    const sortedResults = results.sort((a, b) => a.duration - b.duration);
+    
+    this.sortedProviders = sortedResults
+      .map(r => r.provider)
+      .filter(p => !!p);
+
+    // Abort any lingering requests (though we awaited all)
+    controller.abort();
   }
 
   private checkRateLimit(): void {
@@ -126,7 +165,8 @@ export class CepLookup {
     const controller = new AbortController();
     const { signal } = controller;
 
-    const promises = this.providers.map((provider) => {
+    // Helper to create the promise for a specific provider
+    const createProviderPromise = (provider: Provider) => {
       const startTime = Date.now();
       const url = provider.buildUrl(cleanedCep);
 
@@ -156,21 +196,54 @@ export class CepLookup {
         })
         .catch((error) => {
           const duration = Date.now() - startTime;
-          if (!error.message.includes('Timeout from')) {
-            this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
+          // Only emit failure if it's not a self-induced abortion or timeout handled elsewhere
+          if (!error.message.includes('Timeout from') && error.name !== 'AbortError') {
+             this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
           }
           throw error;
         });
 
       return Promise.race([fetchPromise, timeoutPromise]);
+    };
+
+    // Staggered Strategy using sortedProviders
+    const bestProvider = this.sortedProviders[0];
+    const otherProviders = this.sortedProviders.slice(1);
+
+    // If we only have one provider, just execute it
+    if (otherProviders.length === 0) {
+      try {
+        return await createProviderPromise(bestProvider);
+      } finally {
+        controller.abort();
+      }
+    }
+
+    // Execute primary and manage staggering
+    let staggerTimeout: NodeJS.Timeout | null = null;
+    let triggerOthers: (() => void) | null = null;
+
+    const secondaryPromise = new Promise<T>((resolve, reject) => {
+      triggerOthers = () => {
+        if (staggerTimeout) clearTimeout(staggerTimeout);
+        if (signal.aborted) return;
+        const promises = otherProviders.map(createProviderPromise);
+        Promise.any(promises).then(resolve).catch(reject);
+      };
+
+      staggerTimeout = setTimeout(triggerOthers, this.staggerDelay);
+    });
+
+    const primaryPromise = createProviderPromise(bestProvider).catch((err) => {
+      // If primary fails, trigger others immediately
+      if (triggerOthers) triggerOthers();
+      throw err;
     });
 
     try {
-      if (promises.length === 1) {
-        return await promises[0];
-      }
-      return await Promise.any(promises);
+      return await Promise.any([primaryPromise, secondaryPromise]);
     } finally {
+      if (staggerTimeout) clearTimeout(staggerTimeout);
       controller.abort();
     }
   }
