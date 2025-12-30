@@ -10,11 +10,11 @@ A modern, flexible, and agnostic Brazilian CEP (postal code) lookup library. Que
 ## Key Features
 
 - **⚡ Race Strategy**: Queries multiple APIs (ViaCEP, BrasilAPI, ApiCEP) and returns the fastest valid response.
+- **🧠 Smart Warmup**: Predictively finds the fastest provider for the user's network before they even hit "search".
 - **🛡️ Built-in Security**: Robust data validation, sanitization, and automatic CEP normalization.
 - **🚀 High Performance**: Sub-microsecond cache resolution (~2.5M ops/s).
 - **📦 Dual-Build**: Native support for ESM (`.mjs`) and CommonJS (`.cjs`).
 - **🔌 Framework Ready**: Official hooks for React and Vue 3, and easily extensible to others.
-- **📦 Dual-Build**: Native support for ESM (`.mjs`) and CommonJS (`.cjs`).
 
 ---
 
@@ -88,6 +88,18 @@ cepLookup.on('success', (event) => {
 cepLookup.on('failure', ({ cep, error }) => {
   console.error(`Failed to find ${cep}: ${error.message}`);
 });
+```
+
+### Smart Warmup (Predictive Ranking)
+
+Optimize performance by pre-calculating the fastest provider when the user interacts with the UI (e.g., input focus).
+
+```typescript
+// 1. Call warmup when user focuses the field
+input.onfocus = () => cepLookup.warmup();
+
+// 2. The subsequent lookup will prioritize the fastest provider
+const address = await cepLookup.lookup("01001-000");
 ```
 
 
