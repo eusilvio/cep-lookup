@@ -20,51 +20,49 @@ import {
 
 // Create a default instance for use when no provider is specified
 const defaultProviders = [viaCepProvider, brasilApiProvider, apicepProvider];
+const defaultCache = new InMemoryCache();
 const defaultCepLookup = new CepLookup({
   providers: defaultProviders,
-  cache: new InMemoryCache(), // Provide a default in-memory cache
+  cache: defaultCache,
 });
 
-export interface CepContextValue {
+export interface CepContextValue<T = Address> {
   instance: CepLookup;
-  mapper?: (address: Address) => any;
-  // Expose the options used to create the CepLookup instance
+  mapper?: (address: Address) => T;
   options: CepLookupOptions;
 }
 
-const CepContext = createContext<CepContextValue>({
+const CepContext = createContext<CepContextValue<any>>({
   instance: defaultCepLookup,
-  options: { providers: defaultProviders, cache: new InMemoryCache() }, // Default options
+  options: { providers: defaultProviders, cache: defaultCache },
 });
 
 // Define the props for the provider, which are the CepLookupOptions
-interface CepProviderProps extends Partial<CepLookupOptions> {
+interface CepProviderProps<T = Address> extends Partial<CepLookupOptions> {
   children: ReactNode;
-  mapper?: (address: Address) => any;
+  mapper?: (address: Address) => T;
   // New event handlers
   onSuccess?: (event: EventMap['success']) => void;
   onFailure?: (event: EventMap['failure']) => void;
   onCacheHit?: (event: EventMap['cache:hit']) => void;
 }
 
-export const CepProvider: React.FC<CepProviderProps> = ({
+export const CepProvider = <T,>({
   children,
   mapper,
   onSuccess,
   onFailure,
   onCacheHit,
   ...options
-}) => {
+}: CepProviderProps<T>) => {
   const cepLookupInstance = useMemo(() => {
     // If no options are provided, use the default instance
     if (!Object.keys(options).length) {
       return defaultCepLookup;
     }
-    // If options are provided, create a new instance.
-    // If providers are not specified, use the default ones.
     return new CepLookup({
       providers: defaultProviders,
-      cache: new InMemoryCache(), // Ensure a cache is always present
+      cache: defaultCache,
       ...options,
     });
   }, [options]);
@@ -98,7 +96,7 @@ export const CepProvider: React.FC<CepProviderProps> = ({
     () => ({
       instance: cepLookupInstance,
       mapper,
-      options: { providers: defaultProviders, cache: new InMemoryCache(), ...options },
+      options: { providers: defaultProviders, cache: defaultCache, ...options },
     }),
     [cepLookupInstance, mapper, options]
   );

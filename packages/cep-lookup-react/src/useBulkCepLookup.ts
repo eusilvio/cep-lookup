@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { lookupCeps, BulkCepResult, CepLookupOptions } from '@eusilvio/cep-lookup'; // Removed BulkLookupOptions
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { BulkCepResult } from '@eusilvio/cep-lookup';
 import { useCepLookupInstance } from './CepProvider';
 
-export const useBulkCepLookup = (
+export const useBulkCepLookup = <T = any>(
   ceps: string[],
-  options?: { concurrency?: number } // Simplified type for options
+  options?: { concurrency?: number }
 ) => {
   const [results, setResults] = useState<BulkCepResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const { instance: cepLookupInstance, mapper, options: providerOptions } = useCepLookupInstance(); // Get providerOptions
+  const { instance: cepLookup, mapper } = useCepLookupInstance();
+  const lastRequestCeps = useRef<string[]>([]);
 
   const performBulkLookup = useCallback(async () => {
     if (!ceps || ceps.length === 0) {
@@ -19,37 +20,36 @@ export const useBulkCepLookup = (
       return;
     }
 
+    // Simple check to avoid redundant calls if ceps haven't changed
+    const cleanedCeps = ceps.map(cep => cep.replace(/\D/g, ""));
+    const cepsKey = cleanedCeps.join(',');
+    if (cepsKey === lastRequestCeps.current.join(',')) return;
+    
+    lastRequestCeps.current = cleanedCeps;
     setLoading(true);
     setError(null);
+
     try {
-      const cleanedCeps = ceps.map(cep => cep.replace(/\D/g, ""));
-      const bulkResults = await lookupCeps({
-        ceps: cleanedCeps,
-        providers: providerOptions.providers, // Use providers from providerOptions
-        cache: providerOptions.cache,       // Use cache from providerOptions
-        fetcher: providerOptions.fetcher,   // Use fetcher from providerOptions
-        rateLimit: providerOptions.rateLimit, // Use rateLimit from providerOptions
-        concurrency: options?.concurrency, // Pass concurrency from local options
-      });
+      const bulkResults = await cepLookup.lookupCeps(cleanedCeps, options?.concurrency);
 
       // Apply mapper if available
       const mappedResults = bulkResults.map(result => ({
         ...result,
-        data: result.data && mapper ? mapper(result.data) : result.data,
+        data: result.data && mapper ? mapper(result.data) : (result.data as unknown as T),
       }));
 
       setResults(mappedResults);
     } catch (e: any) {
-      setError(e);
+      setError(e instanceof Error ? e : new Error(String(e)));
       setResults([]);
     } finally {
       setLoading(false);
     }
-  }, [ceps, options, cepLookupInstance, mapper, providerOptions]); // Added providerOptions to dependencies
+  }, [ceps, options?.concurrency, cepLookup, mapper]);
 
   useEffect(() => {
     performBulkLookup();
   }, [performBulkLookup]);
 
-  return { results, loading, error, performBulkLookup };
+  return { results, loading, error, refresh: performBulkLookup };
 };
