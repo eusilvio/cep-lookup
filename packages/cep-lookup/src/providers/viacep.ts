@@ -12,15 +12,15 @@ export const viaCepProvider: Provider = {
   name: "ViaCEP",
   buildUrl: (cep: string) => `https://viacep.com.br/ws/${cep}/json/`,
   transform: (response: any): Address => {
-    if (response.erro) {
+    if (!response || response.erro === true || response.erro === "true") {
       throw new Error("CEP not found");
     }
     return {
-      cep: response.cep,
-      state: response.uf,
-      city: response.localidade,
-      neighborhood: response.bairro,
-      street: response.logradouro,
+      cep: (response.cep || "").replace("-", ""),
+      state: response.uf || "",
+      city: response.localidade || "",
+      neighborhood: response.bairro || "",
+      street: response.logradouro || "",
       service: "ViaCEP",
     };
   },

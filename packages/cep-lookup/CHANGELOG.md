@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2025-12-30
+
+### Fixed
+- **Cross-Runtime Compatibility**: Separated type and value exports to resolve issues in stricter runtimes like Bun and Deno.
+- **Dual-Build Enhancements**: Improved `.mjs` and `.cjs` generation for better framework interoperability.
+
+## [2.2.0] - 2025-12-30
+
+### Security
+- Updated `esbuild`, `glob`, and `js-yaml` to resolve moderate and high-severity vulnerabilities.
+
+### Changed
+- **CEP Normalization**: The library now returns the CEP in numerical-only format (`00000000`) for consistency across all providers.
+- **Improved Type Safety**: Refactored internal `EventEmitter` and utility functions to eliminate `any` usages and improve strict typing.
+
+### Added
+- **Robust Provider Handling**: Added explicit error validation and data normalization for ViaCEP, BrasilAPI, and ApiCEP providers. All address fields are now guaranteed to be strings.
+
 ## [2.1.0] - 2025-10-10
 
 ### Added

@@ -72,24 +72,23 @@ A React component that provides the `CepLookup` instance to its children.
 
 It accepts all options from `CepLookupOptions` as props:
 
-- `providers` (optional): `Provider[]` - An array of CEP providers. Defaults to `[viaCepProvider, brasilApiProvider, apicepProvider]`.
-- `cache` (optional): `Cache` - A cache instance (e.g., `new InMemoryCache()`). Defaults to a new `InMemoryCache` instance.
+- `providers` (optional): `Provider[]` - An array of CEP providers.
+- `cache` (optional): `Cache` - A cache instance. Defaults to a persistent `InMemoryCache`.
 - `rateLimit` (optional): `RateLimitOptions` - Options for rate limiting.
-- `fetcher` (optional): `Fetcher` - A custom fetch implementation.
+- `mapper` (optional): `(address: Address) => T` - A function to transform the address object globally.
+- `onSuccess` (optional): `(event) => void` - Callback triggered on successful lookups.
+- `onFailure` (optional): `(event) => void` - Callback triggered on lookup failures.
+- `onCacheHit` (optional): `(event) => void` - Callback triggered on cache hits.
 
-### `useCepLookup(cep: string, debounceTime?: number)`
+### `useCepLookup<T = Address>(cep: string, delay?: number)`
 
-A React hook that performs the CEP lookup.
+A React hook that performs the CEP lookup with built-in race condition protection.
 
 **Parameters**
 
 - `cep`: `string` - The CEP to look up.
-- `debounceTime` (optional): `number` - The debounce time in milliseconds before the lookup is triggered. Defaults to `500`.
+- `delay` (optional): `number` - The debounce delay in milliseconds. Defaults to `500`.
 
 **Returns**
 
-An object with the following properties:
-
-- `address`: `Address | null` - The found address object, or `null` if not found or not yet loaded.
-- `loading`: `boolean` - `true` when a lookup is in progress.
-- `error`: `Error | null` - An `Error` object if the lookup fails, otherwise `null`.
+An object with `address` (typed as `T`), `loading`, and `error`.

@@ -33,7 +33,7 @@ async function run() {
   for (const cep of ceps) {
     console.log(`\n--- Looking up CEP: ${cep} ---\n`);
 
-    // Example 1: Basic usage
+    // Example 1: Basic usage (The CEP in the result will be normalized to numerical only: 01001000)
     try {
       const address = await cepLookup.lookup(cep);
       console.log("Address found (default format):", address);

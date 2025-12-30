@@ -64,3 +64,6 @@ yarn.lock
 .eslintcache
 .prettierignore
 .prettierrc
+\n# Gemini AI Agents\n.gemini/
+.gemini/
+AGENTS.md
