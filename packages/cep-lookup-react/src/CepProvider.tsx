@@ -2,6 +2,7 @@ import {
   apicepProvider,
   brasilApiProvider,
   viaCepProvider,
+  openCepProvider,
 } from "@eusilvio/cep-lookup/providers";
 import React, {
   createContext,
@@ -19,7 +20,7 @@ import {
 } from "@eusilvio/cep-lookup";
 
 // Create a default instance for use when no provider is specified
-const defaultProviders = [viaCepProvider, brasilApiProvider, apicepProvider];
+const defaultProviders = [viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider];
 const defaultCache = new InMemoryCache();
 const defaultCepLookup = new CepLookup({
   providers: defaultProviders,

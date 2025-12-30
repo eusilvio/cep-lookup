@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Warmup Test - CEP Lookup</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        .container { border: 1px solid #ccc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input { padding: 10px; width: 100%; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        #logs { background: #f4f4f4; padding: 15px; border-radius: 4px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; margin-top: 20px; border: 1px solid #ddd; }
+        .log-item { margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+        .log-time { color: #888; margin-right: 10px; }
+        .highlight { color: #d63384; font-weight: bold; }
+        .success { color: #198754; font-weight: bold; }
+        .info { color: #0d6efd; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🚀 Smart Warmup Tester</h2>
+    <p>Open the console for more details. Focus on the input to trigger warmup.</p>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="cep">CEP:</label>
+        <input type="text" id="cep" placeholder="01001-000" autocomplete="off">
+        <button id="btn-search">Buscar</button>
+    </div>
+
+    <div id="result"></div>
+    
+    <h3>Live Logs</h3>
+    <div id="logs"></div>
+</div>
+
+<script type="module">
+    // Import directly from the local build
+    import { CepLookup } from '../dist/index.mjs';
+    import { viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider } from '../dist/providers/index.mjs';
+
+    // Logger utility
+    const logDiv = document.getElementById('logs');
+    function log(msg, type = 'normal') {
+        const time = new Date().toLocaleTimeString();
+        const el = document.createElement('div');
+        el.className = 'log-item';
+        let colorClass = '';
+        if (type === 'highlight') colorClass = 'highlight';
+        if (type === 'success') colorClass = 'success';
+        if (type === 'info') colorClass = 'info';
+        
+        el.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${msg}</span>`;
+        logDiv.prepend(el);
+        console.log(`[${time}] ${msg}`);
+    }
+
+    // Initialize Library
+    log("Initializing CepLookup...", 'info');
+    
+    const cepLookup = new CepLookup({
+        providers: [viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider],
+        staggerDelay: 200 // Giving 200ms advantage to the winner
+    });
+
+    // Event Listeners
+    cepLookup.on('success', (evt) => {
+        log(`✅ [${evt.provider}] Success! Duration: ${evt.duration}ms`, 'success');
+    });
+
+    cepLookup.on('failure', (evt) => {
+        log(`❌ [${evt.provider}] Failed. Error: ${evt.error.message}`, 'highlight');
+    });
+
+    // UI Logic
+    const input = document.getElementById('cep');
+    const btn = document.getElementById('btn-search');
+    const resultDiv = document.getElementById('result');
+
+    // 1. SMART WARMUP ON FOCUS
+    input.addEventListener('focus', async () => {
+        if (input.dataset.warmed === 'true') return; // Avoid repeating if already hot
+        
+        log("⚡ [Focus Event] Triggering Smart Warmup...", 'highlight');
+        const start = performance.now();
+        
+        const sortedProviders = await cepLookup.warmup();
+        const winner = sortedProviders[0];
+        
+        const end = performance.now();
+        log(`🔥 Warmup complete in ${(end - start).toFixed(2)}ms.`, 'info');
+        log(`🏆 Winner: <span class="success">${winner.name}</span> will be prioritized!`, 'info');
+        input.dataset.warmed = 'true';
+    });
+
+    // 2. SEARCH
+    async function doSearch() {
+        const val = input.value;
+        if (val.length < 8) {
+            log("CEP too short", 'highlight');
+            return;
+        }
+
+        resultDiv.innerHTML = 'Searching...';
+        log(`🔍 Starting lookup for ${val}...`);
+        
+        try {
+            const start = performance.now();
+            const address = await cepLookup.lookup(val);
+            const end = performance.now();
+            
+            resultDiv.innerHTML = `
+                <div style="background: #e9ecef; padding: 10px; border-radius: 4px;">
+                    <strong>${address.street}</strong><br>
+                    ${address.neighborhood}, ${address.city} - ${address.state}<br>
+                    <small>Provided by: <b>${address.service}</b></small>
+                </div>
+            `;
+            log(`🏁 Lookup finished in ${(end - start).toFixed(2)}ms`, 'success');
+        } catch (err) {
+            resultDiv.innerHTML = `<span style="color:red">Error: ${err.message}</span>`;
+            log(`💥 Global Error: ${err.message}`, 'highlight');
+        }
+    }
+
+    btn.addEventListener('click', doSearch);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') doSearch();
+    });
+
+</script>
+
+</body>
+</html>

@@ -34,7 +34,8 @@
   "scripts": {
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --out-extension:.js=.cjs --minify && esbuild src/index.ts src/providers/index.ts --bundle --platform=neutral --format=esm --outdir=dist --out-extension:.js=.mjs --minify",
-    "test": "jest"
+    "test": "jest",
+    "test:html": "npx http-server . -o examples/index.html -c-1"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

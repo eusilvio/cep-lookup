@@ -1,10 +1,10 @@
 import { ref, watch, onUnmounted, Ref, getCurrentInstance } from 'vue';
 import { CepLookup, Address, InMemoryCache } from '@eusilvio/cep-lookup';
-import { viaCepProvider, brasilApiProvider, apicepProvider } from '@eusilvio/cep-lookup/providers';
+import { viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider } from '@eusilvio/cep-lookup/providers';
 
 // Global or shared instance logic can be implemented here or via a Vue Plugin/Provide/Inject
 // For simplicity and parity with React, we'll allow passing options or use a default instance
-const defaultProviders = [viaCepProvider, brasilApiProvider, apicepProvider];
+const defaultProviders = [viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider];
 const defaultCache = new InMemoryCache();
 const defaultInstance = new CepLookup({
   providers: defaultProviders,
@@ -15,7 +15,7 @@ export interface UseCepLookupReturn<T> {
   address: Ref<T | null>;
   loading: Ref<boolean>;
   error: Ref<Error | null>;
-  warmup: () => Promise<void>;
+  warmup: () => Promise<any[]>;
 }
 
 export function useCepLookup<T = Address>(

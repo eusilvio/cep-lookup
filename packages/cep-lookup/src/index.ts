@@ -108,8 +108,9 @@ export class CepLookup {
    * @method warmup
    * @description Pings providers to determine the fastest one and updates the internal priority order.
    * Useful to call on UI events like 'focus' on the CEP input.
+   * @returns {Promise<Provider[]>} The list of providers sorted by latency.
    */
-  public async warmup(): Promise<void> {
+  public async warmup(): Promise<Provider[]> {
     const controlCep = "01001000"; // Praça da Sé (Fixed Valid CEP)
     const controller = new AbortController();
     
@@ -137,6 +138,8 @@ export class CepLookup {
 
     // Abort any lingering requests (though we awaited all)
     controller.abort();
+
+    return this.sortedProviders;
   }
 
   private checkRateLimit(): void {
