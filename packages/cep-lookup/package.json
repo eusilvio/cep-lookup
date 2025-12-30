@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "description": "A modern, flexible, and agnostic CEP lookup library written in TypeScript.",
   "license": "MIT",
   "author": "Silvio Souza",

@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup-vue",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Vue composition API hooks for cep-lookup.",
   "license": "MIT",
   "author": "Silvio Souza",
@@ -25,9 +25,25 @@
     "test": "jest"
   },
   "peerDependencies": {
-    "@eusilvio/cep-lookup": "^2.3.1",
+    "@eusilvio/cep-lookup": "^2.3.2",
     "vue": "^3.0.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eusilvio/cep-lookup.git",
+    "directory": "packages/cep-lookup-vue"
+  },
+  "bugs": {
+    "url": "https://github.com/eusilvio/cep-lookup/issues"
+  },
+  "homepage": "https://github.com/eusilvio/cep-lookup#readme",
+  "keywords": [
+    "cep",
+    "lookup",
+    "vue",
+    "hook",
+    "composition-api"
+  ],
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@vue/test-utils": "^2.4.6",

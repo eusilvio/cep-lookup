@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup-react",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "React hook for cep-lookup.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,7 @@
     }
   },
   "peerDependencies": {
-    "@eusilvio/cep-lookup": "^2.3.1",
+    "@eusilvio/cep-lookup": "^2.3.2",
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0"
   },
