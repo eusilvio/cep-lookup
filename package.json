@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @eusilvio/cep-lookup && npm run build -w @eusilvio/cep-lookup-react",
+    "build": "npm run build -w @eusilvio/cep-lookup && npm run build -w @eusilvio/cep-lookup-react && npm run build -w @eusilvio/cep-lookup-vue",
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
