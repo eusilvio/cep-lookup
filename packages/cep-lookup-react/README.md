@@ -91,4 +91,6 @@ A React hook that performs the CEP lookup with built-in race condition protectio
 
 **Returns**
 
-An object with `address` (typed as `T`), `loading`, and `error`.
+An object with `address` (typed as `T`), `loading`, `error`, and `warmup`.
+
+- `warmup`: `() => Promise<void>` - Function to trigger provider ranking optimization. Best used on `onFocus` events.

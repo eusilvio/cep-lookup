@@ -1,7 +1,7 @@
 {
   "name": "@eusilvio/cep-lookup",
-  "version": "2.3.2",
-  "description": "A modern, flexible, and agnostic CEP lookup library written in TypeScript.",
+  "version": "2.4.0",
+  "description": "A agnostic, performant and flexible CEP lookup library with race strategy and caching.",
   "license": "MIT",
   "author": "Silvio Souza",
   "repository": {

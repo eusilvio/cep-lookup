@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2025-12-30
+
+### Added
+- **Smart Warmup (Predictive Ranking)**: Introduced `cepLookup.warmup()` to pre-calculate the fastest provider based on current network conditions.
+- **Staggered Race Strategy**: The `lookup()` method now uses an optimized execution strategy that tries the fastest provider first and only triggers backups after a configurable `staggerDelay`.
+- **Performance Configuration**: Added `staggerDelay` to `CepLookupOptions` to allow fine-tuning the balance between speed and network resource usage.
+- **Framework Integration**: React and Vue hooks now expose the `warmup` function.
+
+### Changed
+- **Internal Optimization**: Improved `lookup` logic to immediately trigger secondary providers if the primary provider fails, even before the `staggerDelay` expires.
+
 ## [2.3.2] - 2025-12-30
 
 ### Fixed

@@ -34,10 +34,20 @@ const { address, loading, error } = useCepLookup(cepInput);
 
 ## API
 
-### `useCepLookup<T>(cep: Ref<string> | string, options?)`
+### `useCepLookup<T = Address>(cep: Ref<string> | string, options?)`
 
-- `cep`: A Vue `ref` or a static string. If a `ref` is provided, the lookup will re-run automatically when the value changes.
-- `options`:
-  - `delay`: Debounce time in ms (default: `500`).
-  - `mapper`: Function to transform the result.
-  - `instance`: Custom `CepLookup` instance.
+A Vue 3 composition API hook for CEP lookups.
+
+**Options**
+
+- `delay` (optional): `number` - Debounce delay. Default: `500`.
+- `staggerDelay` (optional): `number` - Staggered race delay. Default: `100`.
+- `instance` (optional): `CepLookup` - Custom instance.
+- `mapper` (optional): `(address: Address) => T` - Custom mapper.
+
+**Returns**
+
+- `address`: `Ref<T | null>`
+- `loading`: `Ref<boolean>`
+- `error`: `Ref<Error | null>`
+- `warmup`: `() => Promise<void>` - Function to trigger predictive ranking.

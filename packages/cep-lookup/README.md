@@ -153,6 +153,11 @@ Creates a new `CepLookup` instance.
   - `fetcher` (Fetcher, _optional_): Your asynchronous function that fetches data from a URL. Defaults to global `fetch` if not provided.
   - `cache` (Cache, _optional_): An instance of a cache that implements the `Cache` interface. Use `InMemoryCache` for a simple in-memory cache.
   - `rateLimit` ({ requests: number, per: number }, _optional_): Configures an in-memory rate limiter (e.g., `{ requests: 10, per: 1000 }` for 10 requests per second).
+  - `staggerDelay` (number, _optional_): Time in milliseconds to wait for the fastest provider before triggering backups (default: `100`).
+
+### `cepLookup.warmup()`
+
+Pings all providers to determine the fastest one for the current environment. Call this during idle UI time (like when a user focuses a CEP input field) to optimize the subsequent `lookup` call.
 
 ### `cepLookup.lookup<T = Address>(cep, mapper?): Promise<T>`
 
