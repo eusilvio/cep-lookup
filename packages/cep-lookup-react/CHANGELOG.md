@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-12-30
+
+### Changed
+- **Peer Dependency**: Updated `@eusilvio/cep-lookup` to v2.3.0 for better ESM/CJS compatibility.
+- **Build Infrastructure**: Unified exports following the new monorepo standard.
+
 ## [0.2.0] - 2025-12-30
 
 ### Changed

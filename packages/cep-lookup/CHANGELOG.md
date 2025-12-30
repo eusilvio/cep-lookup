@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2025-12-30
+
+### Fixed
+- **Cross-Runtime Compatibility**: Separated type and value exports to resolve issues in stricter runtimes like Bun and Deno.
+- **Dual-Build Enhancements**: Improved `.mjs` and `.cjs` generation for better framework interoperability.
+
 ## [2.2.0] - 2025-12-30
 
 ### Security

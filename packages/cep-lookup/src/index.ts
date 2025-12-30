@@ -1,7 +1,8 @@
 import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap } from "./types";
 import { Cache, InMemoryCache } from "./cache";
 
-export { Address, Fetcher, Provider, CepLookupOptions, Cache, InMemoryCache, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap };
+export type { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache };
+export { InMemoryCache };
 
 // Minimal EventEmitter for internal use
 class EventEmitter {

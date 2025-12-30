@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup-vue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vue composition API hooks for cep-lookup.",
   "license": "MIT",
   "author": "Silvio Souza",
@@ -21,7 +21,7 @@
     "test": "jest"
   },
   "peerDependencies": {
-    "@eusilvio/cep-lookup": "^2.2.0",
+    "@eusilvio/cep-lookup": "^2.3.0",
     "vue": "^3.0.0"
   },
   "devDependencies": {
