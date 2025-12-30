@@ -20,6 +20,7 @@ jest.mock('@eusilvio/cep-lookup', () => {
         }
         return Promise.reject(new Error('CEP not found'));
       }),
+      warmup: jest.fn().mockResolvedValue(undefined),
       on: jest.fn(),
       off: jest.fn(),
     })),
@@ -74,5 +75,12 @@ describe('useCepLookup (Vue)', () => {
     await new Promise(resolve => setTimeout(resolve, 10));
 
     expect(address.value?.cep).toBe('01001000');
+  });
+
+  it('should expose warmup function', async () => {
+    const { warmup } = useCepLookup('', { delay: 0 });
+    
+    expect(typeof warmup).toBe('function');
+    await warmup();
   });
 });

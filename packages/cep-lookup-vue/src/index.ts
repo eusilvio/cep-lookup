@@ -15,12 +15,14 @@ export interface UseCepLookupReturn<T> {
   address: Ref<T | null>;
   loading: Ref<boolean>;
   error: Ref<Error | null>;
+  warmup: () => Promise<void>;
 }
 
 export function useCepLookup<T = Address>(
   cep: Ref<string> | string,
   options: { 
     delay?: number;
+    staggerDelay?: number;
     instance?: CepLookup;
     mapper?: (address: Address) => T;
   } = {}
@@ -79,9 +81,14 @@ export function useCepLookup<T = Address>(
     onUnmounted(cleanup);
   }
 
+  const warmup = () => {
+    return cepLookup.warmup();
+  };
+
   return {
     address,
     loading,
-    error
+    error,
+    warmup
   };
 }
