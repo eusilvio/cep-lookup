@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "npm run clean && tsc --build && esbuild src/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --minify --external:react --external:@eusilvio/cep-lookup",
     "test": "jest --passWithNoTests"
   },

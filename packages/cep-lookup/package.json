@@ -25,10 +25,12 @@
   },
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts --bundle --platform=node --format=cjs --outdir=dist --minify --external:node:*",
     "test": "jest"
   },
