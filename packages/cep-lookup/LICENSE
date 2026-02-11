@@ -1,24 +1,4 @@
-# Project License
-
-This project was developed with the philosophy that knowledge and tools should be accessible to all. I believe that by sharing our work freely, we can empower other creators to build incredible things.
-
-That's why I chose the MIT License for this project. In simple terms, this means you have complete freedom to use, modify, and distribute this code, even for commercial purposes, with a single condition: you must keep the original copyright and license notice included.
-
-Thank you for your interest and contributions!
-
----
-
-# Licença do Projeto
-
-Este projeto foi desenvolvido com a filosofia de que o conhecimento e as ferramentas devem ser acessíveis a todos. Acredito que, ao compartilhar nosso trabalho livremente, podemos capacitar outros criadores a construir coisas incríveis.
-
-Por isso, escolhi a Licença MIT para este projeto. Em termos simples, isso significa que você tem total liberdade para usar, modificar e distribuir este código, até mesmo para fins comerciais, com uma única condição: mantenha o aviso de licença e copyright originais.
-
-Agradecemos o seu interesse e contribuição!
-
----
-
-### MIT License
+MIT License
 
 Copyright (c) 2025 Silvio Campos
 
@@ -38,30 +18,4 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-### Tradução para Português (Apenas para referência)
-
-_Aviso: Esta é uma tradução não oficial e serve apenas para facilitar o entendimento. A versão em inglês é a que possui validade legal._
-
-Copyright (c) 2025 Silvio Campos
-
-É concedida permissão, gratuitamente, a qualquer pessoa que obtenha uma cópia
-deste software e dos arquivos de documentação associados (o "Software"), para negociar
-o Software sem restrições, incluindo, sem limitação, os direitos
-de usar, copiar, modificar, mesclar, publicar, distribuir, sublicenciar e/ou vender
-cópias do Software, e permitir que as pessoas a quem o Software é
-fornecido o façam, sujeito às seguintes condições:
-
-O aviso de copyright acima e este aviso de permissão devem ser incluídos em todas as
-cópias ou partes substanciais do Software.
-
-O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM GARANTIA DE QUALQUER TIPO, EXPRESSA OU
-IMPLÍCITA, INCLUINDO, MAS NÃO SE LIMITANDO ÀS GARANTIAS DE COMERCIALIZAÇÃO,
-ADEQUAÇÃO A UM FIM ESPECÍFICO E NÃO VIOLAÇÃO. EM NENHUMA CIRCUNSTÂNCIA OS
-AUTORES OU TITULARES DE DIREITOS AUTORAIS SERÃO RESPONSÁVEIS POR QUALQUER REIVINDICAÇÃO, DANOS OU OUTRA
-RESPONSABILIDADE, SEJA EM UMA AÇÃO DE CONTRATO, ILÍCITO CIVIL OU DE OUTRA FORMA, DECORRENTE DE,
-FORA DE OU EM CONEXÃO COM O SOFTWARE OU O USO OU OUTRAS NEGOCIAÇÕES NO
 SOFTWARE.
