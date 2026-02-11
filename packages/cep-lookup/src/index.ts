@@ -324,23 +324,3 @@ export class CepLookup {
     return results.filter(Boolean);
   }
 }
-
-/**
- * @deprecated Use `new CepLookup(options).lookup(cep)` instead.
- */
-export function lookupCep<T = Address>(options: CepLookupOptions & { cep: string, mapper?: (address: Address) => T }): Promise<T> {
-  console.warn("[cep-lookup] The standalone `lookupCep` function is deprecated and will be removed in a future version. Please use `new CepLookup(options).lookup(cep)` instead.");
-  const { cep, providers, fetcher, mapper, cache, rateLimit } = options;
-  const cepLookup = new CepLookup({ providers, fetcher, cache, rateLimit });
-  return cepLookup.lookup(cep, mapper);
-}
-
-/**
- * @deprecated Use `new CepLookup(options).lookupCeps(ceps)` instead.
- */
-export async function lookupCeps<T = Address>(options: CepLookupOptions & { ceps: string[], concurrency?: number, mapper?: (address: Address) => T }): Promise<BulkCepResult<T>[]> {
-  console.warn("[cep-lookup] The standalone `lookupCeps` function is deprecated and will be removed in a future version. Please use `new CepLookup(options).lookupCeps(ceps)` instead.");
-  const { ceps, providers, fetcher, cache, concurrency = 5, rateLimit, mapper } = options;
-  const cepLookup = new CepLookup({ providers, fetcher, cache, rateLimit });
-  return cepLookup.lookupCeps(ceps, concurrency, mapper);
-}
