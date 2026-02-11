@@ -23,6 +23,26 @@
       "types": "./dist/src/providers/index.d.ts",
       "import": "./dist/providers/index.mjs",
       "require": "./dist/providers/index.cjs"
+    },
+    "./providers/viacep": {
+      "types": "./dist/src/providers/viacep.d.ts",
+      "import": "./dist/providers/viacep.mjs",
+      "require": "./dist/providers/viacep.cjs"
+    },
+    "./providers/brasil-api": {
+      "types": "./dist/src/providers/brasil-api.d.ts",
+      "import": "./dist/providers/brasil-api.mjs",
+      "require": "./dist/providers/brasil-api.cjs"
+    },
+    "./providers/apicep": {
+      "types": "./dist/src/providers/apicep.d.ts",
+      "import": "./dist/providers/apicep.mjs",
+      "require": "./dist/providers/apicep.cjs"
+    },
+    "./providers/opencep": {
+      "types": "./dist/src/providers/opencep.d.ts",
+      "import": "./dist/providers/opencep.mjs",
+      "require": "./dist/providers/opencep.cjs"
     }
   },
   "sideEffects": false,
@@ -33,7 +53,7 @@
   ],
   "scripts": {
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
-    "build": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --out-extension:.js=.cjs --minify && esbuild src/index.ts src/providers/index.ts --bundle --platform=neutral --format=esm --outdir=dist --out-extension:.js=.mjs --minify",
+    "build": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts src/providers/viacep.ts src/providers/brasil-api.ts src/providers/apicep.ts src/providers/opencep.ts --bundle --platform=neutral --format=cjs --outdir=dist --out-extension:.js=.cjs --minify && esbuild src/index.ts src/providers/index.ts src/providers/viacep.ts src/providers/brasil-api.ts src/providers/apicep.ts src/providers/opencep.ts --bundle --platform=neutral --format=esm --outdir=dist --out-extension:.js=.mjs --minify",
     "test": "jest",
     "test:html": "npx http-server . -o examples/index.html -c-1"
   },

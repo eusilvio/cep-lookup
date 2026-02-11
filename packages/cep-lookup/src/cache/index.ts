@@ -9,39 +9,73 @@ export interface Cache {
   get(key: string): Address | undefined;
   set(key: string, value: Address): void;
   clear(): void;
+  delete?(key: string): void;
+  has?(key: string): boolean;
+}
+
+interface CacheEntry {
+  value: Address;
+  timestamp: number;
+}
+
+export interface InMemoryCacheOptions {
+  /** Time-to-live in milliseconds. Default: Infinity (no expiry) */
+  ttl?: number;
+  /** Maximum number of entries. Default: Infinity (no limit) */
+  maxSize?: number;
 }
 
 /**
  * @class InMemoryCache
- * @description A simple in-memory cache implementation for storing CEP lookups.
+ * @description In-memory cache with optional TTL and size limit.
  */
 export class InMemoryCache implements Cache {
-  private cache = new Map<string, Address>();
+  private cache = new Map<string, CacheEntry>();
+  private ttl: number;
+  private maxSize: number;
 
-  /**
-   * @method get
-   * @description Retrieves an address from the cache.
-   * @param {string} key - The CEP to look up.
-   * @returns {Address | undefined} The cached address or undefined if not found.
-   */
+  constructor(options?: InMemoryCacheOptions) {
+    this.ttl = options?.ttl ?? Infinity;
+    this.maxSize = options?.maxSize ?? Infinity;
+  }
+
   get(key: string): Address | undefined {
-    return this.cache.get(key);
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    if (this.ttl !== Infinity && Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    return entry.value;
   }
 
-  /**
-   * @method set
-   * @description Stores an address in the cache.
-   * @param {string} key - The CEP to use as the cache key.
-   * @param {Address} value - The address to store.
-   */
   set(key: string, value: Address): void {
-    this.cache.set(key, value);
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, { value, timestamp: Date.now() });
   }
 
-  /**
-   * @method clear
-   * @description Clears the entire cache.
-   */
+  delete(key: string): void {
+    this.cache.delete(key);
+  }
+
+  has(key: string): boolean {
+    if (!this.cache.has(key)) return false;
+    const entry = this.cache.get(key)!;
+    if (this.ttl !== Infinity && Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return false;
+    }
+    return true;
+  }
+
   clear(): void {
     this.cache.clear();
   }

@@ -1,8 +1,10 @@
 import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap } from "./types";
-import { Cache, InMemoryCache } from "./cache";
+import { Cache, InMemoryCache, InMemoryCacheOptions } from "./cache";
+import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError } from "./errors";
 
-export type { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache };
+export type { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions };
 export { InMemoryCache };
+export { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError };
 
 // Minimal EventEmitter for internal use
 class EventEmitter {
@@ -44,7 +46,7 @@ class EventEmitter {
 function validateCep(cep: string): string {
   const cepRegex = /^(\d{8}|\d{5}-\d{3})$/;
   if (!cepRegex.test(cep)) {
-    throw new Error("Invalid CEP format. Use either NNNNNNNN or NNNNN-NNN.");
+    throw new CepValidationError(cep);
   }
   return cep.replace("-", "");
 }
@@ -77,6 +79,9 @@ export class CepLookup {
   private cache?: Cache;
   private rateLimit?: RateLimitOptions;
   private staggerDelay: number;
+  private retries: number;
+  private retryDelay: number;
+  private logger?: { debug: (msg: string, data?: Record<string, unknown>) => void };
   private requestTimestamps: number[] = [];
   private emitter: EventEmitter;
 
@@ -94,6 +99,13 @@ export class CepLookup {
     this.cache = options.cache;
     this.rateLimit = options.rateLimit;
     this.staggerDelay = options.staggerDelay ?? 100;
+    this.retries = options.retries ?? 0;
+    this.retryDelay = options.retryDelay ?? 1000;
+    this.logger = options.logger;
+  }
+
+  private log(msg: string, data?: Record<string, unknown>): void {
+    this.logger?.debug(msg, data);
   }
 
   public on<T extends EventName>(eventName: T, listener: EventListener<T>): void {
@@ -148,7 +160,7 @@ export class CepLookup {
     const windowStart = now - this.rateLimit.per;
     this.requestTimestamps = this.requestTimestamps.filter((ts) => ts > windowStart);
     if (this.requestTimestamps.length >= this.rateLimit.requests) {
-      throw new Error(`Rate limit exceeded: ${this.rateLimit.requests} requests per ${this.rateLimit.per}ms.`);
+      throw new RateLimitError(this.rateLimit.requests, this.rateLimit.per);
     }
     this.requestTimestamps.push(now);
   }
@@ -156,29 +168,54 @@ export class CepLookup {
   async lookup<T = Address>(cep: string, mapper?: (address: Address) => T): Promise<T> {
     this.checkRateLimit();
     const cleanedCep = validateCep(cep);
+    this.log('lookup:start', { cep: cleanedCep });
 
     if (this.cache) {
       const cachedAddress = this.cache.get(cleanedCep);
       if (cachedAddress) {
+        this.log('cache:hit', { cep: cleanedCep });
         this.emitter.emit('cache:hit', { cep: cleanedCep });
         return mapper ? mapper(cachedAddress) : (cachedAddress as Address as T);
       }
     }
 
+    let lastError: Error | undefined;
+    const maxAttempts = 1 + this.retries;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const delay = this.retryDelay * Math.pow(2, attempt - 1);
+        this.log('retry:attempt', { attempt, cep: cleanedCep, delay });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      try {
+        return await this._lookupFromProviders(cleanedCep, mapper);
+      } catch (error) {
+        if (error instanceof CepValidationError || error instanceof RateLimitError) {
+          throw error;
+        }
+        lastError = error as Error;
+      }
+    }
+    throw lastError!;
+  }
+
+  private async _lookupFromProviders<T = Address>(cleanedCep: string, mapper?: (address: Address) => T): Promise<T> {
     const controller = new AbortController();
     const { signal } = controller;
 
-    // Helper to create the promise for a specific provider
     const createProviderPromise = (provider: Provider) => {
       const startTime = Date.now();
       const url = provider.buildUrl(cleanedCep);
+      this.log('provider:start', { provider: provider.name, cep: cleanedCep });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
         if (!provider.timeout) return;
         const timeoutId = setTimeout(() => {
           signal.removeEventListener('abort', onAbort);
           const duration = Date.now() - startTime;
-          const error = new Error(`Timeout from ${provider.name}`);
+          const error = new ProviderTimeoutError(provider.name, provider.timeout!);
+          this.log('provider:failure', { provider: provider.name, cep: cleanedCep, error: error.message });
           this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
           reject(error);
         }, provider.timeout);
@@ -191,6 +228,7 @@ export class CepLookup {
         .then((address) => {
           const duration = Date.now() - startTime;
           const sanitizedAddress = sanitizeAddress(address);
+          this.log('provider:success', { provider: provider.name, cep: cleanedCep, duration });
           this.emitter.emit('success', { provider: provider.name, cep: cleanedCep, duration, address: sanitizedAddress });
           if (this.cache) {
             this.cache.set(cleanedCep, sanitizedAddress);
@@ -199,9 +237,9 @@ export class CepLookup {
         })
         .catch((error) => {
           const duration = Date.now() - startTime;
-          // Only emit failure if it's not a self-induced abortion or timeout handled elsewhere
           if (!error.message.includes('Timeout from') && error.name !== 'AbortError') {
-             this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
+            this.log('provider:failure', { provider: provider.name, cep: cleanedCep, error: error.message });
+            this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
           }
           throw error;
         });
@@ -209,11 +247,9 @@ export class CepLookup {
       return Promise.race([fetchPromise, timeoutPromise]);
     };
 
-    // Staggered Strategy using sortedProviders
     const bestProvider = this.sortedProviders[0];
     const otherProviders = this.sortedProviders.slice(1);
 
-    // If we only have one provider, just execute it
     if (otherProviders.length === 0) {
       try {
         return await createProviderPromise(bestProvider);
@@ -222,7 +258,6 @@ export class CepLookup {
       }
     }
 
-    // Execute primary and manage staggering
     let staggerTimeout: NodeJS.Timeout | null = null;
     let triggerOthers: (() => void) | null = null;
 
@@ -238,25 +273,27 @@ export class CepLookup {
     });
 
     const primaryPromise = createProviderPromise(bestProvider).catch((err) => {
-      // If primary fails, trigger others immediately
       if (triggerOthers) triggerOthers();
       throw err;
     });
 
     try {
       return await Promise.any([primaryPromise, secondaryPromise]);
+    } catch (aggregateError) {
+      const errors = (aggregateError as AggregateError).errors || [aggregateError];
+      throw new AllProvidersFailedError(errors);
     } finally {
       if (staggerTimeout) clearTimeout(staggerTimeout);
       controller.abort();
     }
   }
 
-  public async lookupCeps(ceps: string[], concurrency: number = 5): Promise<BulkCepResult[]> {
+  public async lookupCeps<T = Address>(ceps: string[], concurrency: number = 5, mapper?: (address: Address) => T): Promise<BulkCepResult<T>[]> {
     if (!ceps || ceps.length === 0) {
       return [];
     }
 
-    const results: BulkCepResult[] = new Array(ceps.length);
+    const results: BulkCepResult<T>[] = new Array(ceps.length);
     let cepIndex = 0;
 
     const worker = async () => {
@@ -267,7 +304,11 @@ export class CepLookup {
         try {
           const address = await this.lookup(cep);
           if (address) {
-            results[currentIndex] = { cep, data: address, provider: address.service };
+            results[currentIndex] = {
+              cep,
+              data: mapper ? mapper(address) : (address as unknown as T),
+              provider: address.service,
+            };
           } else {
             throw new Error('No address found');
           }
@@ -297,9 +338,9 @@ export function lookupCep<T = Address>(options: CepLookupOptions & { cep: string
 /**
  * @deprecated Use `new CepLookup(options).lookupCeps(ceps)` instead.
  */
-export async function lookupCeps(options: CepLookupOptions & { ceps: string[], concurrency?: number }): Promise<BulkCepResult[]> {
+export async function lookupCeps<T = Address>(options: CepLookupOptions & { ceps: string[], concurrency?: number, mapper?: (address: Address) => T }): Promise<BulkCepResult<T>[]> {
   console.warn("[cep-lookup] The standalone `lookupCeps` function is deprecated and will be removed in a future version. Please use `new CepLookup(options).lookupCeps(ceps)` instead.");
-  const { ceps, providers, fetcher, cache, concurrency = 5, rateLimit } = options;
+  const { ceps, providers, fetcher, cache, concurrency = 5, rateLimit, mapper } = options;
   const cepLookup = new CepLookup({ providers, fetcher, cache, rateLimit });
-  return cepLookup.lookupCeps(ceps, concurrency);
+  return cepLookup.lookupCeps(ceps, concurrency, mapper);
 }

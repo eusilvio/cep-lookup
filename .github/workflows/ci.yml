@@ -1,47 +1,32 @@
-name: 🚀 Ship it to npm!
+name: CI
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  publish:
+  build-and-test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    strategy:
+      matrix:
+        node-version: [20, 22, 24]
 
     steps:
-      - name: 🛎 Checkout the code (no stealing!)
+      - name: Checkout
         uses: actions/checkout@v5
 
-      - name: 🪄 Setup Node.js (abracadabra!)
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          node-version: ${{ matrix.node-version }}
 
-      - name: 🍕 Install dependencies (snack time for npm)
+      - name: Install dependencies
         run: npm ci
 
-      - name: 🔨 Build all packages (make it shine)
+      - name: Build all packages
         run: npm run build
 
-      - name: 🧪 Run tests (mad scientist mode)
+      - name: Run tests
         run: npm test
-
-      - name: 📦 Publish @eusilvio/cep-lookup (send it to the wild!)
-        run: npm publish --access public --provenance --ignore-scripts -w @eusilvio/cep-lookup
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: 🎯 Publish @eusilvio/cep-lookup-react (React rocket launch!)
-        run: npm publish --access public --provenance --ignore-scripts -w @eusilvio/cep-lookup-react
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: 🧪 Publish @eusilvio/cep-lookup-vue (Vue spaceship launch!)
-        run: npm publish --access public --provenance --ignore-scripts -w @eusilvio/cep-lookup-vue
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

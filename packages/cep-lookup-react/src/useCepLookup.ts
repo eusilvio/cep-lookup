@@ -8,11 +8,12 @@ export const useCepLookup = <T = Address>(cep: string, delay = 500) => {
   const [loading, setLoading] = useState(false);
   const { instance: cepLookup, mapper } = useCepLookupInstance();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentCepRef = useRef<string>("");
 
   useEffect(() => {
     const cleanedCep = cep.replace(/\D/g, "");
+    currentCepRef.current = cleanedCep;
 
-    // Clear previous timeout if any
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -23,20 +24,18 @@ export const useCepLookup = <T = Address>(cep: string, delay = 500) => {
 
       timeoutRef.current = setTimeout(async () => {
         try {
-          // Note: In a real-world scenario with multiple providers, 
-          // CepLookup handles the internal race between providers.
-          // Here we handle the race between consecutive hook calls.
           const result = await cepLookup.lookup(cleanedCep);
-          
-          // Verify if this is still the current request by checking if the CEP matches
-          // (This is a simple way to avoid race conditions without AbortController complexity in the hook)
+          if (cleanedCep !== currentCepRef.current) return;
           setAddress(mapper ? mapper(result) : (result as unknown as T));
           setError(null);
         } catch (e: any) {
+          if (cleanedCep !== currentCepRef.current) return;
           setError(e instanceof Error ? e : new Error(String(e)));
           setAddress(null);
         } finally {
-          setLoading(false);
+          if (cleanedCep === currentCepRef.current) {
+            setLoading(false);
+          }
         }
       }, delay);
     } else {

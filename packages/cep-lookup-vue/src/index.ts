@@ -1,15 +1,35 @@
-import { ref, watch, onUnmounted, Ref, getCurrentInstance } from 'vue';
-import { CepLookup, Address, InMemoryCache } from '@eusilvio/cep-lookup';
+import { ref, watch, onUnmounted, Ref, getCurrentInstance, inject, InjectionKey, Plugin } from 'vue';
+import { CepLookup, Address, InMemoryCache, CepLookupOptions } from '@eusilvio/cep-lookup';
 import { viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider } from '@eusilvio/cep-lookup/providers';
 
-// Global or shared instance logic can be implemented here or via a Vue Plugin/Provide/Inject
-// For simplicity and parity with React, we'll allow passing options or use a default instance
 const defaultProviders = [viaCepProvider, brasilApiProvider, apicepProvider, openCepProvider];
 const defaultCache = new InMemoryCache();
 const defaultInstance = new CepLookup({
   providers: defaultProviders,
   cache: defaultCache
 });
+
+const CEP_LOOKUP_KEY: InjectionKey<CepLookup> = Symbol('cep-lookup');
+
+export function createCepLookupPlugin(options?: Partial<CepLookupOptions>): Plugin {
+  return {
+    install(app) {
+      const instance = options
+        ? new CepLookup({
+            providers: options.providers || defaultProviders,
+            cache: options.cache || defaultCache,
+            ...options,
+          })
+        : defaultInstance;
+      app.provide(CEP_LOOKUP_KEY, instance);
+    },
+  };
+}
+
+export function useCepLookupInstance(): CepLookup {
+  if (!getCurrentInstance()) return defaultInstance;
+  return inject(CEP_LOOKUP_KEY, defaultInstance);
+}
 
 export interface UseCepLookupReturn<T> {
   address: Ref<T | null>;
@@ -20,7 +40,7 @@ export interface UseCepLookupReturn<T> {
 
 export function useCepLookup<T = Address>(
   cep: Ref<string> | string,
-  options: { 
+  options: {
     delay?: number;
     staggerDelay?: number;
     instance?: CepLookup;
@@ -30,10 +50,11 @@ export function useCepLookup<T = Address>(
   const address = ref<T | null>(null) as Ref<T | null>;
   const loading = ref(false);
   const error = ref<Error | null>(null);
-  
-  const cepLookup = options.instance || defaultInstance;
+
+  const cepLookup = options.instance || useCepLookupInstance();
   const delay = options.delay ?? 500;
   let timeoutId: any = null;
+  let currentLookupCep = '';
 
   const cleanup = () => {
     if (timeoutId) clearTimeout(timeoutId);
@@ -41,7 +62,8 @@ export function useCepLookup<T = Address>(
 
   const lookup = async (val: string) => {
     const cleanedCep = val.replace(/\D/g, "");
-    
+    currentLookupCep = cleanedCep;
+
     cleanup();
 
     if (cleanedCep.length === 8) {
@@ -51,13 +73,17 @@ export function useCepLookup<T = Address>(
       timeoutId = setTimeout(async () => {
         try {
           const result = await cepLookup.lookup(cleanedCep);
+          if (cleanedCep !== currentLookupCep) return;
           address.value = options.mapper ? options.mapper(result) : (result as unknown as T);
           error.value = null;
         } catch (e: any) {
+          if (cleanedCep !== currentLookupCep) return;
           error.value = e instanceof Error ? e : new Error(String(e));
           address.value = null;
         } finally {
-          loading.value = false;
+          if (cleanedCep === currentLookupCep) {
+            loading.value = false;
+          }
         }
       }, delay);
     } else {
@@ -67,7 +93,6 @@ export function useCepLookup<T = Address>(
     }
   };
 
-  // Support both Ref and raw string
   if (typeof cep === 'string') {
     lookup(cep);
   } else {
@@ -76,7 +101,6 @@ export function useCepLookup<T = Address>(
     }, { immediate: true });
   }
 
-  // Only register onUnmounted if we are inside a component lifecycle
   if (getCurrentInstance()) {
     onUnmounted(cleanup);
   }

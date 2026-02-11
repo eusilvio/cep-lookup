@@ -54,42 +54,34 @@ export const CepProvider = <T,>({
   onSuccess,
   onFailure,
   onCacheHit,
-  ...options
+  providers,
+  cache,
+  rateLimit,
+  staggerDelay,
+  fetcher,
 }: CepProviderProps<T>) => {
   const cepLookupInstance = useMemo(() => {
-    // If no options are provided, use the default instance
-    if (!Object.keys(options).length) {
+    if (!providers && !cache && !rateLimit && staggerDelay === undefined && !fetcher) {
       return defaultCepLookup;
     }
     return new CepLookup({
-      providers: defaultProviders,
-      cache: defaultCache,
-      ...options,
+      providers: providers || defaultProviders,
+      cache: cache || defaultCache,
+      ...(rateLimit && { rateLimit }),
+      ...(staggerDelay !== undefined && { staggerDelay }),
+      ...(fetcher && { fetcher }),
     });
-  }, [options]);
+  }, [providers, cache, rateLimit, staggerDelay, fetcher]);
 
-  // Register and unregister event listeners
   useEffect(() => {
-    if (onSuccess) {
-      cepLookupInstance.on('success', onSuccess);
-    }
-    if (onFailure) {
-      cepLookupInstance.on('failure', onFailure);
-    }
-    if (onCacheHit) {
-      cepLookupInstance.on('cache:hit', onCacheHit);
-    }
+    if (onSuccess) cepLookupInstance.on('success', onSuccess);
+    if (onFailure) cepLookupInstance.on('failure', onFailure);
+    if (onCacheHit) cepLookupInstance.on('cache:hit', onCacheHit);
 
     return () => {
-      if (onSuccess) {
-        cepLookupInstance.off('success', onSuccess);
-      }
-      if (onFailure) {
-        cepLookupInstance.off('failure', onFailure);
-      }
-      if (onCacheHit) {
-        cepLookupInstance.off('cache:hit', onCacheHit);
-      }
+      if (onSuccess) cepLookupInstance.off('success', onSuccess);
+      if (onFailure) cepLookupInstance.off('failure', onFailure);
+      if (onCacheHit) cepLookupInstance.off('cache:hit', onCacheHit);
     };
   }, [cepLookupInstance, onSuccess, onFailure, onCacheHit]);
 
@@ -97,9 +89,15 @@ export const CepProvider = <T,>({
     () => ({
       instance: cepLookupInstance,
       mapper,
-      options: { providers: defaultProviders, cache: defaultCache, ...options },
+      options: {
+        providers: providers || defaultProviders,
+        cache: cache || defaultCache,
+        ...(rateLimit && { rateLimit }),
+        ...(staggerDelay !== undefined && { staggerDelay }),
+        ...(fetcher && { fetcher }),
+      },
     }),
-    [cepLookupInstance, mapper, options]
+    [cepLookupInstance, mapper, providers, cache, rateLimit, staggerDelay, fetcher]
   );
 
   return (

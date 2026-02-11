@@ -49,15 +49,21 @@ export interface CepLookupOptions {
   cache?: Cache;
   rateLimit?: RateLimitOptions;
   staggerDelay?: number;
+  /** Number of retries after all providers fail. Default: 0 */
+  retries?: number;
+  /** Base delay in ms between retries (exponential backoff). Default: 1000 */
+  retryDelay?: number;
+  /** Optional logger for debug output */
+  logger?: { debug: (msg: string, data?: Record<string, unknown>) => void };
 }
 
 /**
  * @interface BulkCepResult
  * @description Represents the result for a single CEP in a bulk lookup operation.
  */
-export interface BulkCepResult {
+export interface BulkCepResult<T = Address> {
   cep: string;
-  data: Address | null;
+  data: T | null;
   provider?: string;
   error?: Error;
 }
