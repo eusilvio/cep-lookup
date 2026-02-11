@@ -27,6 +27,7 @@ export const openCepProvider: Provider = {
       neighborhood: response.bairro || "",
       street: response.logradouro || "",
       service: "OpenCEP",
+      ibge: response.ibge || undefined,
     };
   },
 };

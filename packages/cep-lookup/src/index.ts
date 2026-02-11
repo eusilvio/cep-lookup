@@ -1,6 +1,7 @@
 import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap } from "./types";
 import { Cache, InMemoryCache, InMemoryCacheOptions } from "./cache";
 import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError } from "./errors";
+import { dddByState } from "./data/ddd-by-state";
 
 export type { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions };
 export { InMemoryCache };
@@ -66,6 +67,20 @@ function sanitizeAddress(address: Address): Address {
     }
   });
   return sanitized;
+}
+
+/**
+ * @function enrichAddress
+ * @description Enriches an address with DDD fallback when the provider doesn't return it.
+ */
+function enrichAddress(address: Address): Address {
+  if (!address.ddd && address.state) {
+    const fallbackDdd = dddByState[address.state];
+    if (fallbackDdd) {
+      return { ...address, ddd: fallbackDdd };
+    }
+  }
+  return address;
 }
 
 /**
@@ -227,7 +242,7 @@ export class CepLookup {
         .then((response) => provider.transform(response))
         .then((address) => {
           const duration = Date.now() - startTime;
-          const sanitizedAddress = sanitizeAddress(address);
+          const sanitizedAddress = enrichAddress(sanitizeAddress(address));
           this.log('provider:success', { provider: provider.name, cep: cleanedCep, duration });
           this.emitter.emit('success', { provider: provider.name, cep: cleanedCep, duration, address: sanitizedAddress });
           if (this.cache) {

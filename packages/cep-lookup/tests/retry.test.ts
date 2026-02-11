@@ -35,7 +35,7 @@ describe('Retry mechanism', () => {
     });
 
     const result = await lookup.lookup('01001000');
-    expect(result).toEqual(mockAddress);
+    expect(result).toEqual({ ...mockAddress, ddd: '11' });
     expect(callCount).toBe(2);
   });
 

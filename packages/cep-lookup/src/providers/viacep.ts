@@ -22,6 +22,8 @@ export const viaCepProvider: Provider = {
       neighborhood: response.bairro || "",
       street: response.logradouro || "",
       service: "ViaCEP",
+      ibge: response.ibge || undefined,
+      ddd: response.ddd || undefined,
     };
   },
 };

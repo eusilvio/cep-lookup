@@ -11,6 +11,8 @@ export interface Address {
   neighborhood: string;
   street: string;
   service: string;
+  ibge?: string;
+  ddd?: string;
 }
 
 /**
