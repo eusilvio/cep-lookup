@@ -2,7 +2,7 @@
 
 [![NPM Version](https://img.shields.io/npm/v/@eusilvio/cep-lookup.svg)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
 [![NPM Unpacked Size](https://img.shields.io/npm/unpacked-size/@eusilvio/cep-lookup)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
-[![Build Status](https://img.shields.io/github/workflow/status/eusilvio/cep-lookup/CI)](https://github.com/eusilvio/cep-lookup/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/ci.yml)](https://github.com/eusilvio/cep-lookup/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A modern, flexible, and agnostic CEP (Brazilian postal code) lookup library written in TypeScript.
@@ -119,7 +119,7 @@ const cepLookup = new CepLookup({
 });
 
 // 2. Look up multiple CEPs
-cepLookup.lookupCeps(cepsToLookup, { concurrency: 2 }).then((results: BulkCepResult[]) => {
+cepLookup.lookupCeps(cepsToLookup, 2).then((results: BulkCepResult[]) => {
   console.log("Bulk lookup results:", results);
   // Output:
   // [
@@ -166,13 +166,12 @@ Returns a `Promise` that resolves to the address in the default format (`Address
 - `cep` (string, **required**): The CEP to be queried.
 - `mapper` ((address: Address) => T, _optional_): A function that receives the default `Address` object and transforms it into a new format `T`.
 
-### `cepLookup.lookupCeps(ceps, options?): Promise<BulkCepResult[]>`
+### `cepLookup.lookupCeps(ceps, concurrency?): Promise<BulkCepResult[]>`
 
 Looks up multiple CEPs in bulk. Returns a `Promise` that resolves to an array of `BulkCepResult` objects, one for each queried CEP.
 
 - `ceps` (string[], **required**): An array of CEP strings to be queried.
-- `options` (object, _optional_): An options object.
-  - `concurrency` (number): The number of parallel requests to make. Defaults to `5`.
+- `concurrency` (number, _optional_): The number of parallel requests to make. Defaults to `5`.
 
 > **Note on Deprecated Functions:**
 > Standalone `lookupCep` and `lookupCeps` functions are deprecated and will be removed in a future version. Please use the methods on a `CepLookup` instance instead.
@@ -248,6 +247,13 @@ const myCustomProvider: Provider = {
 ```bash
 npm test
 ```
+
+## Compatibility and support
+
+- Node.js: `20.x`, `22.x`, `24.x`
+- React package: `react >= 16.8`
+- Vue package: `vue ^3`
+- Maintenance policy: [SUPPORT.md](../../SUPPORT.md)
 
 ## License
 

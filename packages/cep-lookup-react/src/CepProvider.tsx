@@ -10,6 +10,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
 } from "react";
 import {
   Address,
@@ -60,13 +61,20 @@ export const CepProvider = <T,>({
   staggerDelay,
   fetcher,
 }: CepProviderProps<T>) => {
+  const instanceCacheRef = useRef<InMemoryCache | null>(null);
+  if (!instanceCacheRef.current) {
+    instanceCacheRef.current = new InMemoryCache();
+  }
+
   const cepLookupInstance = useMemo(() => {
     if (!providers && !cache && !rateLimit && staggerDelay === undefined && !fetcher) {
       return defaultCepLookup;
     }
+
+    const resolvedCache = cache ?? instanceCacheRef.current!;
     return new CepLookup({
       providers: providers || defaultProviders,
-      cache: cache || defaultCache,
+      cache: resolvedCache,
       ...(rateLimit && { rateLimit }),
       ...(staggerDelay !== undefined && { staggerDelay }),
       ...(fetcher && { fetcher }),
@@ -91,7 +99,7 @@ export const CepProvider = <T,>({
       mapper,
       options: {
         providers: providers || defaultProviders,
-        cache: cache || defaultCache,
+        cache: cache ?? instanceCacheRef.current!,
         ...(rateLimit && { rateLimit }),
         ...(staggerDelay !== undefined && { staggerDelay }),
         ...(fetcher && { fetcher }),

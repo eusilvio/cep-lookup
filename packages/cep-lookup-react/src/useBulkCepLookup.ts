@@ -1,16 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BulkCepResult } from '@eusilvio/cep-lookup';
+import { Address, BulkCepResult } from '@eusilvio/cep-lookup';
 import { useCepLookupInstance } from './CepProvider';
 
-export const useBulkCepLookup = <T = any>(
+export const useBulkCepLookup = <T = Address>(
   ceps: string[],
   options?: { concurrency?: number }
 ) => {
-  const [results, setResults] = useState<BulkCepResult[]>([]);
+  const [results, setResults] = useState<BulkCepResult<T>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { instance: cepLookup, mapper } = useCepLookupInstance();
   const lastRequestCeps = useRef<string[]>([]);
+  const lastRawResults = useRef<BulkCepResult<Address>[]>([]);
 
   const performBulkLookup = useCallback(async () => {
     if (!ceps || ceps.length === 0) {
@@ -30,13 +31,14 @@ export const useBulkCepLookup = <T = any>(
     setError(null);
 
     try {
-      const bulkResults = await cepLookup.lookupCeps(cleanedCeps, options?.concurrency);
+      const bulkResults = await cepLookup.lookupCeps<Address>(cleanedCeps, options?.concurrency);
+      lastRawResults.current = bulkResults;
 
       // Apply mapper if available
       const mappedResults = bulkResults.map(result => ({
         ...result,
         data: result.data && mapper ? mapper(result.data) : (result.data as unknown as T),
-      }));
+      })) as BulkCepResult<T>[];
 
       setResults(mappedResults);
     } catch (e: any) {
@@ -50,6 +52,15 @@ export const useBulkCepLookup = <T = any>(
   useEffect(() => {
     performBulkLookup();
   }, [performBulkLookup]);
+
+  useEffect(() => {
+    if (lastRawResults.current.length === 0) return;
+    const remapped = lastRawResults.current.map((result) => ({
+      ...result,
+      data: result.data && mapper ? mapper(result.data) : (result.data as unknown as T),
+    })) as BulkCepResult<T>[];
+    setResults(remapped);
+  }, [mapper]);
 
   return { results, loading, error, refresh: performBulkLookup };
 };

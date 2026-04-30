@@ -3,6 +3,7 @@
 [![NPM Version](https://img.shields.io/npm/v/@eusilvio/cep-lookup.svg)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
 [![NPM Unpacked Size](https://img.shields.io/npm/unpacked-size/@eusilvio/cep-lookup)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/ci.yml)](https://github.com/eusilvio/cep-lookup/actions)
+[![Release](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/release.yml?label=release)](https://github.com/eusilvio/cep-lookup/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A modern, flexible, and agnostic Brazilian CEP (postal code) lookup library. Query multiple providers simultaneously and get the fastest response.
@@ -36,6 +37,15 @@ A modern, flexible, and agnostic Brazilian CEP (postal code) lookup library. Que
 - [`@eusilvio/cep-lookup`](packages/cep-lookup): Core library (agnostic).
 - [`@eusilvio/cep-lookup-react`](packages/cep-lookup-react): Official React hooks and provider.
 - [`@eusilvio/cep-lookup-vue`](packages/cep-lookup-vue): Official Vue 3 composition API hooks.
+
+## Compatibility
+
+- Node.js: `20.x`, `22.x`, `24.x`
+- React package: `react >= 16.8`
+- Vue package: `vue ^3`
+- Browser APIs required: `fetch`, `Promise.any`, `AbortController`
+
+Full policy: [SUPPORT.md](SUPPORT.md)
 
 ---
 
@@ -109,3 +119,9 @@ const address = await cepLookup.lookup("01001-000");
 
 
 MIT © [Silvio Souza](https://github.com/eusilvio)
+
+## Community
+
+- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security policy: [SECURITY.md](SECURITY.md)

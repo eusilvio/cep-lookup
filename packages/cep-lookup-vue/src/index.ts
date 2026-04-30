@@ -51,7 +51,14 @@ export function useCepLookup<T = Address>(
   const loading = ref(false);
   const error = ref<Error | null>(null);
 
-  const cepLookup = options.instance || useCepLookupInstance();
+  const cepLookup = options.instance
+    || (options.staggerDelay !== undefined
+      ? new CepLookup({
+          providers: defaultProviders,
+          cache: defaultCache,
+          staggerDelay: options.staggerDelay,
+        })
+      : useCepLookupInstance());
   const delay = options.delay ?? 500;
   let timeoutId: any = null;
   let currentLookupCep = '';

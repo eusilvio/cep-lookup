@@ -8,6 +8,12 @@ Vue 3 Composition API hooks for [`@eusilvio/cep-lookup`](https://www.npmjs.com/p
 npm install @eusilvio/cep-lookup @eusilvio/cep-lookup-vue vue
 ```
 
+## Compatibility
+
+- Vue: `^3`
+- Node.js (for tooling/tests): `20.x`, `22.x`, `24.x`
+- Support policy: [SUPPORT.md](../../SUPPORT.md)
+
 ## Usage
 
 ```vue
@@ -51,3 +57,8 @@ A Vue 3 composition API hook for CEP lookups.
 - `loading`: `Ref<boolean>`
 - `error`: `Ref<Error | null>`
 - `warmup`: `() => Promise<void>` - Function to trigger predictive ranking.
+
+## Community
+
+- Contributing guide: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- Code of conduct: [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)

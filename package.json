@@ -7,12 +7,16 @@
   ],
   "scripts": {
     "build": "npm run build -w @eusilvio/cep-lookup && npm run build -w @eusilvio/cep-lookup-react && npm run build -w @eusilvio/cep-lookup-vue",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
     "find-up": "^8.0.0",
     "pkg-dir": "^8.0.0",
     "tinybench": "^6.0.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@changesets/cli": "^2.29.7"
   }
 }

@@ -273,7 +273,7 @@ export class CepLookup {
       }
     }
 
-    let staggerTimeout: NodeJS.Timeout | null = null;
+    let staggerTimeout: ReturnType<typeof setTimeout> | null = null;
     let triggerOthers: (() => void) | null = null;
 
     const secondaryPromise = new Promise<T>((resolve, reject) => {

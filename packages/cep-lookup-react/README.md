@@ -12,6 +12,12 @@ npm install @eusilvio/cep-lookup @eusilvio/cep-lookup-react react
 yarn add @eusilvio/cep-lookup @eusilvio/cep-lookup-react react
 ```
 
+## Compatibility
+
+- React: `>= 16.8`
+- Node.js (for tooling/tests): `20.x`, `22.x`, `24.x`
+- Support policy: [SUPPORT.md](../../SUPPORT.md)
+
 ## Basic Usage
 
 Wrap your application or component tree with the `CepProvider` and use the `useCepLookup` hook anywhere inside it.
@@ -94,3 +100,8 @@ A React hook that performs the CEP lookup with built-in race condition protectio
 An object with `address` (typed as `T`), `loading`, `error`, and `warmup`.
 
 - `warmup`: `() => Promise<void>` - Function to trigger provider ranking optimization. Best used on `onFocus` events.
+
+## Community
+
+- Contributing guide: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- Code of conduct: [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
