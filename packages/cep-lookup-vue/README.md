@@ -1,6 +1,6 @@
 # @eusilvio/cep-lookup-vue
 
-Vue 3 Composition API hooks for [`@eusilvio/cep-lookup`](https://www.npmjs.com/package/@eusilvio/cep-lookup).
+Vue 3 composition hooks for [`@eusilvio/cep-lookup`](https://www.npmjs.com/package/@eusilvio/cep-lookup).
 
 ## Installation
 
@@ -11,54 +11,70 @@ npm install @eusilvio/cep-lookup @eusilvio/cep-lookup-vue vue
 ## Compatibility
 
 - Vue: `^3`
-- Node.js (for tooling/tests): `20.x`, `22.x`, `24.x`
-- Support policy: [SUPPORT.md](../../SUPPORT.md)
+- Node.js (tooling/tests): `20.x`, `22.x`, `24.x`
+- Core peer: `@eusilvio/cep-lookup ^2.6.0`
 
-## Usage
+## Basic Usage
 
 ```vue
-<script setup>
-import { ref } from 'vue';
-import { useCepLookup } from '@eusilvio/cep-lookup-vue';
+<script setup lang="ts">
+import { ref } from "vue";
+import { useCepLookup } from "@eusilvio/cep-lookup-vue";
 
-const cepInput = ref('01001000');
-const { address, loading, error } = useCepLookup(cepInput);
+const cepInput = ref("01001000");
+const { address, loading, error, warmup } = useCepLookup(cepInput, { delay: 300 });
 </script>
 
 <template>
-  <div>
-    <input v-model="cepInput" placeholder="Digite o CEP" />
-    
-    <div v-if="loading">Buscando...</div>
-    <div v-else-if="error" style="color: red">{{ error.message }}</div>
-    <div v-else-if="address">
-      <p>Endereço: {{ address.street }}, {{ address.city }} - {{ address.state }}</p>
-    </div>
-  </div>
+  <input v-model="cepInput" @focus="warmup" />
+  <div v-if="loading">Buscando...</div>
+  <div v-else-if="error">{{ error.message }}</div>
+  <div v-else-if="address">{{ address.street }} - {{ address.city }}</div>
 </template>
+```
+
+## Using Core Resilience Features
+
+```ts
+import { CepLookup } from "@eusilvio/cep-lookup";
+import { viaCepProvider, brasilApiProvider } from "@eusilvio/cep-lookup/providers";
+import { useCepLookup } from "@eusilvio/cep-lookup-vue";
+
+const instance = new CepLookup({
+  providers: [viaCepProvider, brasilApiProvider],
+  retries: 1,
+  circuitBreaker: {
+    enabled: true,
+    failureThreshold: 3,
+    cooldownMs: 30000,
+  },
+});
+
+const { address, error } = useCepLookup("01001000", { instance });
 ```
 
 ## API
 
 ### `useCepLookup<T = Address>(cep: Ref<string> | string, options?)`
 
-A Vue 3 composition API hook for CEP lookups.
+Options:
+- `delay`
+- `staggerDelay`
+- `instance`
+- `mapper`
 
-**Options**
+Returns:
+- `address`
+- `loading`
+- `error`
+- `warmup`
 
-- `delay` (optional): `number` - Debounce delay. Default: `500`.
-- `staggerDelay` (optional): `number` - Staggered race delay. Default: `100`.
-- `instance` (optional): `CepLookup` - Custom instance.
-- `mapper` (optional): `(address: Address) => T` - Custom mapper.
+### `createCepLookupPlugin(options?)`
 
-**Returns**
-
-- `address`: `Ref<T | null>`
-- `loading`: `Ref<boolean>`
-- `error`: `Ref<Error | null>`
-- `warmup`: `() => Promise<void>` - Function to trigger predictive ranking.
+Provides a `CepLookup` instance in app context with all core options, including `circuitBreaker`, `retries`, and `rateLimit`.
 
 ## Community
 
-- Contributing guide: [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- Code of conduct: [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
+- [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
+- [SECURITY.md](../../SECURITY.md)

@@ -1,28 +1,10 @@
 # @eusilvio/cep-lookup
 
 [![NPM Version](https://img.shields.io/npm/v/@eusilvio/cep-lookup.svg)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
-[![NPM Unpacked Size](https://img.shields.io/npm/unpacked-size/@eusilvio/cep-lookup)](https://www.npmjs.com/package/@eusilvio/cep-lookup)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/ci.yml)](https://github.com/eusilvio/cep-lookup/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A modern, flexible, and agnostic CEP (Brazilian postal code) lookup library written in TypeScript.
-
-## About
-
-`@eusilvio/cep-lookup` was created to solve address lookup from a CEP in a different way. Instead of relying on a single data source, it queries multiple services simultaneously and returns the response from the fastest one.
-
-Its agnostic design allows it to be used in any JavaScript environment with any HTTP client, and its powerful "mapper" system allows you to format the data output exactly as you need.
-
-## Key Features
-
-- **Multiple Providers (Race Strategy)**: Queries multiple CEP APIs at the same time and uses the first valid response.
-- **Class-Based API**: Create a reusable instance with your settings.
-- **Bulk Lookups**: Efficiently look up multiple CEPs with a single method call.
-- **Customizable Return Format**: Provide a `mapper` function to transform the address data into any format your application needs.
-- **HTTP Client Agnostic**: You provide the fetch function, giving you full control over the requests. Defaults to global `fetch` if not provided.
-- **Modular and Extensible Architecture**: Adding a new CEP data source is trivial.
-- **Fully Typed**: Developed with TypeScript to ensure type safety and a great developer experience.
-- **Caching**: Built-in support for caching to avoid repeated requests for the same CEP.
+Core CEP lookup engine with multi-provider race, resilience controls, and metrics.
 
 ## Installation
 
@@ -30,231 +12,136 @@ Its agnostic design allows it to be used in any JavaScript environment with any 
 npm install @eusilvio/cep-lookup
 ```
 
-## How to Use
+## Features
 
-`@eusilvio/cep-lookup` is designed to be straightforward. You create a reusable instance of the `CepLookup` class with your desired settings and use its methods to look up single or multiple CEPs. The library also includes a simple in-memory cache to avoid repeated requests, which you can use or replace with your own implementation.
+- Multi-provider race strategy.
+- Cache and rate limiting.
+- Retry with exponential backoff.
+- Standardized errors with error codes.
+- Circuit breaker per provider.
+- Provider health score and runtime metrics.
+- Event-based observability.
 
-### Example 1: Basic Usage
+## Basic Usage
 
-```typescript
-import { CepLookup, Address } from "@eusilvio/cep-lookup";
-import {
-  viaCepProvider,
-  brasilApiProvider,
-} from "@eusilvio/cep-lookup/providers";
+```ts
+import { CepLookup } from "@eusilvio/cep-lookup";
+import { viaCepProvider, brasilApiProvider } from "@eusilvio/cep-lookup/providers";
 
-// 1. Create an instance of CepLookup
-const cepLookup = new CepLookup({
+const lookup = new CepLookup({
   providers: [viaCepProvider, brasilApiProvider],
 });
 
-// 2. Look up a CEP
-cepLookup.lookup("01001-000").then((address: Address) => {
-  console.log("Address found:", address);
-  // Output:
-  // {
-  //   cep: '01001-000',
-  //   state: 'SP',
-  //   city: 'São Paulo',
-  //   neighborhood: 'Sé',
-  //   street: 'Praça da Sé',
-  //   service: 'ViaCEP'
-  // }
-});
+const address = await lookup.lookup("01001-000");
+console.log(address);
 ```
 
-### Example 2: Custom Return with `mapper`
+## Error Handling
 
-```typescript
-import { CepLookup, Address } from "@eusilvio/cep-lookup";
-import { viaCepProvider } from "@eusilvio/cep-lookup/providers";
+```ts
+import {
+  CepLookup,
+  CepNotFoundError,
+  ProviderTimeoutError,
+  RateLimitError,
+  AllProvidersFailedError,
+} from "@eusilvio/cep-lookup";
 
-const cepLookup = new CepLookup({
-  providers: [viaCepProvider],
-});
-
-// 1. Define your "mapper" function
-interface CustomAddress {
-  postalCode: string;
-  fullAddress: string;
-  source: string;
+try {
+  await lookup.lookup("01001000");
+} catch (error) {
+  if (error instanceof CepNotFoundError) {
+    console.log(error.code); // NOT_FOUND
+  } else if (error instanceof ProviderTimeoutError) {
+    console.log(error.code); // TIMEOUT
+  } else if (error instanceof RateLimitError) {
+    console.log(error.code); // RATE_LIMITED
+  } else if (error instanceof AllProvidersFailedError) {
+    console.log(error.code); // ALL_PROVIDERS_FAILED
+  }
 }
-
-const myMapper = (address: Address): CustomAddress => {
-  return {
-    postalCode: address.cep,
-    fullAddress: `${address.street}, ${address.neighborhood} - ${address.city}/${address.state}`,
-    source: address.service,
-  };
-};
-
-// 2. Look up a CEP with the mapper
-cepLookup.lookup("01001-000", myMapper).then((customAddress: CustomAddress) => {
-  console.log("Address found (custom format):", customAddress);
-  // Output:
-  // {
-  //   postalCode: '01001-000',
-  //   fullAddress: 'Praça da Sé, Sé - São Paulo/SP',
-  //   source: 'ViaCEP'
-  // }
-});
 ```
 
-### Example 3: Bulk CEP Lookup
+## Circuit Breaker
 
-For scenarios where you need to query multiple CEPs at once, you can use the `lookupCeps` method. It processes the CEPs in parallel with a configurable concurrency limit to avoid overwhelming the providers.
-
-```typescript
-import { CepLookup, BulkCepResult } from "@eusilvio/cep-lookup";
-import {
-  viaCepProvider,
-  brasilApiProvider,
-} from "@eusilvio/cep-lookup/providers";
-
-const cepsToLookup = ["01001-000", "99999-999", "04538-132"];
-
-// 1. Create an instance with your settings
-const cepLookup = new CepLookup({
+```ts
+const lookup = new CepLookup({
   providers: [viaCepProvider, brasilApiProvider],
-});
-
-// 2. Look up multiple CEPs
-cepLookup.lookupCeps(cepsToLookup, 2).then((results: BulkCepResult[]) => {
-  console.log("Bulk lookup results:", results);
-  // Output:
-  // [
-  //   {
-  //     cep: '01001-000',
-  //     data: { cep: '01001-000', state: 'SP', city: 'São Paulo', ... },
-  //     provider: 'ViaCEP'
-  //   },
-  //   {
-  //     cep: '99999-999',
-  //     data: null,
-  //     error: [Error: All providers failed to find the CEP]
-  //   },
-  //   {
-  //     cep: '04538-132',
-  //     data: { cep: '04538-132', state: 'SP', city: 'São Paulo', ... },
-  //     provider: 'BrasilAPI'
-  //   }
-  // ]
+  circuitBreaker: {
+    enabled: true,
+    failureThreshold: 3,
+    cooldownMs: 30_000,
+  },
 });
 ```
 
-## API
+## Health and SLA Metrics
+
+```ts
+const health = lookup.getProviderHealth();
+/*
+[
+  {
+    provider: 'ViaCEP',
+    score: 0.94,
+    isOpen: false,
+    successCount: 12,
+    failureCount: 1,
+    avgLatencyMs: 52.11,
+    ...
+  }
+]
+*/
+
+const metrics = lookup.getProviderMetrics();
+/*
+[
+  {
+    provider: 'ViaCEP',
+    requests: 13,
+    successes: 12,
+    failures: 1,
+    timeoutErrors: 0,
+    notFoundErrors: 1,
+    avgLatencyMs: 52.11
+  }
+]
+*/
+```
+
+## Bulk Lookup
+
+```ts
+const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
+```
+
+## API Summary
 
 ### `new CepLookup(options)`
 
-Creates a new `CepLookup` instance.
+- `providers`: required provider list.
+- `fetcher`: optional custom HTTP fetch function.
+- `cache`: optional cache implementation.
+- `rateLimit`: `{ requests, per }`.
+- `staggerDelay`: delay before backup providers.
+- `retries`: retry count after failure.
+- `retryDelay`: base retry delay in ms.
+- `circuitBreaker`: `{ enabled, failureThreshold, cooldownMs }`.
 
-- `options`: A configuration object.
-  - `providers` (Provider[], **required**): An array of providers that will be queried.
-  - `fetcher` (Fetcher, _optional_): Your asynchronous function that fetches data from a URL. Defaults to global `fetch` if not provided.
-  - `cache` (Cache, _optional_): An instance of a cache that implements the `Cache` interface. Use `InMemoryCache` for a simple in-memory cache.
-  - `rateLimit` ({ requests: number, per: number }, _optional_): Configures an in-memory rate limiter (e.g., `{ requests: 10, per: 1000 }` for 10 requests per second).
-  - `staggerDelay` (number, _optional_): Time in milliseconds to wait for the fastest provider before triggering backups (default: `100`).
+### Methods
 
-### `cepLookup.warmup()`
-
-Pings all providers to determine the fastest one for the current environment. Call this during idle UI time (like when a user focuses a CEP input field) to optimize the subsequent `lookup` call.
-
-### `cepLookup.lookup<T = Address>(cep, mapper?): Promise<T>`
-
-Returns a `Promise` that resolves to the address in the default format (`Address`) or in the custom format `T` if a `mapper` is provided.
-
-- `cep` (string, **required**): The CEP to be queried.
-- `mapper` ((address: Address) => T, _optional_): A function that receives the default `Address` object and transforms it into a new format `T`.
-
-### `cepLookup.lookupCeps(ceps, concurrency?): Promise<BulkCepResult[]>`
-
-Looks up multiple CEPs in bulk. Returns a `Promise` that resolves to an array of `BulkCepResult` objects, one for each queried CEP.
-
-- `ceps` (string[], **required**): An array of CEP strings to be queried.
-- `concurrency` (number, _optional_): The number of parallel requests to make. Defaults to `5`.
-
-> **Note on Deprecated Functions:**
-> Standalone `lookupCep` and `lookupCeps` functions are deprecated and will be removed in a future version. Please use the methods on a `CepLookup` instance instead.
-
-### Observability Events API
-
-Version 2.0.0 introduced an event-based API to monitor the library's behavior. You can listen to events to gather metrics on provider performance, latency, and errors.
-
-```typescript
-const cepLookup = new CepLookup({ providers: [...] });
-
-// Fired for each successful provider response
-cepLookup.on('success', ({ provider, cep, duration }) => {
-  console.log(`[${provider}] Success for CEP ${cep} in ${duration}ms`);
-  // myMetrics.timing('cep.latency', duration, { provider });
-});
-
-// Fired for each failed provider response
-cepLookup.on('failure', ({ provider, cep, error }) => {
-  console.error(`[${provider}] Failure for CEP ${cep}: ${error.message}`);
-  // myMetrics.increment('cep.failure', { provider });
-});
-
-// Fired when a CEP is resolved from the cache
-cepLookup.on('cache:hit', ({ cep }) => {
-  console.log(`[Cache] CEP ${cep} found in cache.`);
-  // myMetrics.increment('cep.cache_hit');
-});
-
-// The lookup call remains the same
-cepLookup.lookup("01001-000");
-```
-
-## Examples
-
-You can find more detailed examples in the `examples/` directory:
-
-- **Basic Usage**: `examples/example.ts`
-- **Bulk Lookup**: `examples/bulk-example.ts`
-- **Custom Provider**: `examples/custom-provider-example.ts`
-- **Node.js Usage**: `examples/node-example.ts`
-- **React Component**: `examples/react-example.tsx`
-- **React Hook**: `examples/react-hook-example.ts`
-- **Angular Component/Service**: `examples/angular-example.ts`
-- **Cache Usage**: `examples/cache-example.ts`
-
-## Creating a Custom Provider
-
-Your custom provider must always transform the API response to the library's default `Address` interface. The user's `mapper` will handle the final customization.
-
-```typescript
-import { Provider, Address } from "@eusilvio/cep-lookup";
-
-const myCustomProvider: Provider = {
-  name: "MyCustomAPI",
-  buildUrl: (cep: string) => `https://myapi.com/cep/${cep}`,
-  transform: (response: any): Address => {
-    // Transforms the response from "MyCustomAPI" to the "Address" format
-    return {
-      cep: response.postal_code,
-      state: response.data.state_short,
-      city: response.data.city_name,
-      neighborhood: response.data.neighborhood,
-      street: response.data.street_name,
-      service: "MyCustomAPI",
-    };
-  },
-};
-```
-
-## Running Tests
-
-```bash
-npm test
-```
+- `lookup(cep, mapper?)`
+- `lookupCeps(ceps, concurrency?)`
+- `warmup()`
+- `getProviderHealth()`
+- `getProviderMetrics()`
+- `on(event, listener)` / `off(event, listener)`
 
 ## Compatibility and support
 
 - Node.js: `20.x`, `22.x`, `24.x`
-- React package: `react >= 16.8`
-- Vue package: `vue ^3`
 - Maintenance policy: [SUPPORT.md](../../SUPPORT.md)
 
 ## License
 
-Distributed under the MIT License.
+MIT

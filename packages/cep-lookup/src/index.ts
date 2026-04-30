@@ -1,11 +1,11 @@
-import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap } from "./types";
+import { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, ProviderHealth, ProviderMetrics, CircuitBreakerOptions } from "./types";
 import { Cache, InMemoryCache, InMemoryCacheOptions } from "./cache";
-import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError } from "./errors";
+import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError, normalizeProviderError } from "./errors";
 import { dddByState } from "./data/ddd-by-state";
 
-export type { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions };
+export type { Address, Fetcher, Provider, CepLookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions, ProviderHealth, ProviderMetrics, CircuitBreakerOptions };
 export { InMemoryCache };
-export { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError };
+export { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError };
 
 // Minimal EventEmitter for internal use
 class EventEmitter {
@@ -83,6 +83,17 @@ function enrichAddress(address: Address): Address {
   return address;
 }
 
+interface ProviderRuntimeState {
+  consecutiveFailures: number;
+  successCount: number;
+  failureCount: number;
+  avgLatencyMs: number;
+  openUntil?: number;
+  requests: number;
+  timeoutErrors: number;
+  notFoundErrors: number;
+}
+
 /**
  * @class CepLookup
  * @description A class for looking up Brazilian postal codes (CEPs) using multiple providers.
@@ -99,6 +110,10 @@ export class CepLookup {
   private logger?: { debug: (msg: string, data?: Record<string, unknown>) => void };
   private requestTimestamps: number[] = [];
   private emitter: EventEmitter;
+  private circuitBreakerEnabled: boolean;
+  private circuitFailureThreshold: number;
+  private circuitCooldownMs: number;
+  private providerState = new Map<string, ProviderRuntimeState>();
 
   constructor(options: CepLookupOptions) {
     this.providers = options.providers;
@@ -117,6 +132,20 @@ export class CepLookup {
     this.retries = options.retries ?? 0;
     this.retryDelay = options.retryDelay ?? 1000;
     this.logger = options.logger;
+    this.circuitBreakerEnabled = options.circuitBreaker?.enabled ?? true;
+    this.circuitFailureThreshold = options.circuitBreaker?.failureThreshold ?? 3;
+    this.circuitCooldownMs = options.circuitBreaker?.cooldownMs ?? 30000;
+    this.providers.forEach((provider) => {
+      this.providerState.set(provider.name, {
+        consecutiveFailures: 0,
+        successCount: 0,
+        failureCount: 0,
+        avgLatencyMs: 0,
+        requests: 0,
+        timeoutErrors: 0,
+        notFoundErrors: 0,
+      });
+    });
   }
 
   private log(msg: string, data?: Record<string, unknown>): void {
@@ -169,6 +198,104 @@ export class CepLookup {
     return this.sortedProviders;
   }
 
+  private getOrCreateProviderState(providerName: string): ProviderRuntimeState {
+    const existing = this.providerState.get(providerName);
+    if (existing) return existing;
+    const created: ProviderRuntimeState = {
+      consecutiveFailures: 0,
+      successCount: 0,
+      failureCount: 0,
+      avgLatencyMs: 0,
+      requests: 0,
+      timeoutErrors: 0,
+      notFoundErrors: 0,
+    };
+    this.providerState.set(providerName, created);
+    return created;
+  }
+
+  private recordProviderSuccess(providerName: string, durationMs: number): void {
+    const state = this.getOrCreateProviderState(providerName);
+    state.requests += 1;
+    state.successCount += 1;
+    state.consecutiveFailures = 0;
+    const n = state.successCount + state.failureCount;
+    state.avgLatencyMs = n === 1 ? durationMs : ((state.avgLatencyMs * (n - 1)) + durationMs) / n;
+    state.openUntil = undefined;
+  }
+
+  private recordProviderFailure(providerName: string, durationMs: number, error: Error): void {
+    const state = this.getOrCreateProviderState(providerName);
+    state.requests += 1;
+    state.failureCount += 1;
+    state.consecutiveFailures += 1;
+    const n = state.successCount + state.failureCount;
+    state.avgLatencyMs = n === 1 ? durationMs : ((state.avgLatencyMs * (n - 1)) + durationMs) / n;
+    if (error instanceof ProviderTimeoutError) {
+      state.timeoutErrors += 1;
+    }
+    if (error instanceof CepNotFoundError) {
+      state.notFoundErrors += 1;
+    }
+    if (this.circuitBreakerEnabled && state.consecutiveFailures >= this.circuitFailureThreshold) {
+      state.openUntil = Date.now() + this.circuitCooldownMs;
+    }
+  }
+
+  private isProviderOpen(providerName: string): boolean {
+    if (!this.circuitBreakerEnabled) return false;
+    const state = this.getOrCreateProviderState(providerName);
+    if (!state.openUntil) return false;
+    if (Date.now() >= state.openUntil) {
+      state.openUntil = undefined;
+      state.consecutiveFailures = 0;
+      return false;
+    }
+    return true;
+  }
+
+  private scoreProvider(provider: Provider): number {
+    const state = this.getOrCreateProviderState(provider.name);
+    const total = state.successCount + state.failureCount;
+    const successRate = total === 0 ? 1 : state.successCount / total;
+    const latencyPenalty = state.avgLatencyMs > 0 ? Math.min(state.avgLatencyMs / 1000, 1) : 0;
+    const openPenalty = this.isProviderOpen(provider.name) ? 1 : 0;
+    return (successRate * 0.8) + ((1 - latencyPenalty) * 0.2) - openPenalty;
+  }
+
+  public getProviderHealth(): ProviderHealth[] {
+    return this.providers
+      .map((provider) => {
+        const state = this.getOrCreateProviderState(provider.name);
+        return {
+          provider: provider.name,
+          score: Number(this.scoreProvider(provider).toFixed(4)),
+          isOpen: this.isProviderOpen(provider.name),
+          openUntil: state.openUntil,
+          consecutiveFailures: state.consecutiveFailures,
+          successCount: state.successCount,
+          failureCount: state.failureCount,
+          avgLatencyMs: Number(state.avgLatencyMs.toFixed(2)),
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }
+
+  public getProviderMetrics(): ProviderMetrics[] {
+    return this.providers.map((provider) => {
+      const state = this.getOrCreateProviderState(provider.name);
+      return {
+        provider: provider.name,
+        requests: state.requests,
+        successes: state.successCount,
+        failures: state.failureCount,
+        timeoutErrors: state.timeoutErrors,
+        notFoundErrors: state.notFoundErrors,
+        avgLatencyMs: Number(state.avgLatencyMs.toFixed(2)),
+      };
+    });
+  }
+
   private checkRateLimit(): void {
     if (!this.rateLimit) return;
     const now = Date.now();
@@ -218,6 +345,17 @@ export class CepLookup {
   private async _lookupFromProviders<T = Address>(cleanedCep: string, mapper?: (address: Address) => T): Promise<T> {
     const controller = new AbortController();
     const { signal } = controller;
+    const availableProviders = this.sortedProviders.filter((provider) => !this.isProviderOpen(provider.name));
+    const providersByHealth = [...availableProviders].sort((a, b) => this.scoreProvider(b) - this.scoreProvider(a));
+    const selectedProviders = providersByHealth.length > 0 ? providersByHealth : [...this.sortedProviders].sort((a, b) => this.scoreProvider(b) - this.scoreProvider(a));
+
+    if (selectedProviders.length === 0) {
+      throw new AllProvidersFailedError([new ProviderUnavailableError("all")]);
+    }
+
+    if (availableProviders.length === 0 && this.circuitBreakerEnabled) {
+      throw new AllProvidersFailedError(selectedProviders.map((p) => new ProviderUnavailableError(p.name)));
+    }
 
     const createProviderPromise = (provider: Provider) => {
       const startTime = Date.now();
@@ -230,6 +368,7 @@ export class CepLookup {
           signal.removeEventListener('abort', onAbort);
           const duration = Date.now() - startTime;
           const error = new ProviderTimeoutError(provider.name, provider.timeout!);
+          this.recordProviderFailure(provider.name, duration, error);
           this.log('provider:failure', { provider: provider.name, cep: cleanedCep, error: error.message });
           this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
           reject(error);
@@ -243,6 +382,7 @@ export class CepLookup {
         .then((address) => {
           const duration = Date.now() - startTime;
           const sanitizedAddress = enrichAddress(sanitizeAddress(address));
+          this.recordProviderSuccess(provider.name, duration);
           this.log('provider:success', { provider: provider.name, cep: cleanedCep, duration });
           this.emitter.emit('success', { provider: provider.name, cep: cleanedCep, duration, address: sanitizedAddress });
           if (this.cache) {
@@ -252,18 +392,20 @@ export class CepLookup {
         })
         .catch((error) => {
           const duration = Date.now() - startTime;
-          if (!error.message.includes('Timeout from') && error.name !== 'AbortError') {
-            this.log('provider:failure', { provider: provider.name, cep: cleanedCep, error: error.message });
-            this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error });
+          const normalizedError = normalizeProviderError(error, cleanedCep, provider.name);
+          if ((normalizedError as Error).name !== 'AbortError' && !(normalizedError instanceof ProviderTimeoutError)) {
+            this.recordProviderFailure(provider.name, duration, normalizedError);
+            this.log('provider:failure', { provider: provider.name, cep: cleanedCep, error: normalizedError.message });
+            this.emitter.emit('failure', { provider: provider.name, cep: cleanedCep, duration, error: normalizedError });
           }
-          throw error;
+          throw normalizedError;
         });
 
       return Promise.race([fetchPromise, timeoutPromise]);
     };
 
-    const bestProvider = this.sortedProviders[0];
-    const otherProviders = this.sortedProviders.slice(1);
+    const bestProvider = selectedProviders[0];
+    const otherProviders = selectedProviders.slice(1);
 
     if (otherProviders.length === 0) {
       try {

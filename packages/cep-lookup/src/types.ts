@@ -57,6 +57,8 @@ export interface CepLookupOptions {
   retryDelay?: number;
   /** Optional logger for debug output */
   logger?: { debug: (msg: string, data?: Record<string, unknown>) => void };
+  /** Circuit breaker options for provider resilience */
+  circuitBreaker?: CircuitBreakerOptions;
 }
 
 /**
@@ -99,3 +101,33 @@ export interface EventMap {
 }
 
 export type EventListener<T extends EventName> = (payload: EventMap[T]) => void;
+
+export interface CircuitBreakerOptions {
+  /** Consecutive failures required to open the circuit. Default: 3 */
+  failureThreshold?: number;
+  /** Cooldown in ms before trying a provider again. Default: 30000 */
+  cooldownMs?: number;
+  /** Enable/disable circuit breaker. Default: true */
+  enabled?: boolean;
+}
+
+export interface ProviderHealth {
+  provider: string;
+  score: number;
+  isOpen: boolean;
+  openUntil?: number;
+  consecutiveFailures: number;
+  successCount: number;
+  failureCount: number;
+  avgLatencyMs: number;
+}
+
+export interface ProviderMetrics {
+  provider: string;
+  requests: number;
+  successes: number;
+  failures: number;
+  timeoutErrors: number;
+  notFoundErrors: number;
+  avgLatencyMs: number;
+}
