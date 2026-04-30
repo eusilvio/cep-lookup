@@ -35,6 +35,11 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Debug npm identity
+        run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Create Release PR or Publish
         uses: changesets/action@v1
         with:
