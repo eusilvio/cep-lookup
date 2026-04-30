@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-04-30T00:00:00.000Z",
+  "rows": [
+    {
+      "name": "validateCep (regex)",
+      "latencyAvgNs": 123.46,
+      "throughputAvgOps": 10062371
+    },
+    {
+      "name": "lookup with Cache Hit",
+      "latencyAvgNs": 605.68,
+      "throughputAvgOps": 2660285
+    },
+    {
+      "name": "InMemoryCache.get",
+      "latencyAvgNs": 48.38,
+      "throughputAvgOps": 21420081
+    },
+    {
+      "name": "EventEmitter.emit (success event)",
+      "latencyAvgNs": 63.95,
+      "throughputAvgOps": 16992575
+    }
+  ]
+}

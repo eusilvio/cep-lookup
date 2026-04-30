@@ -78,3 +78,8 @@ Provides a `CepLookup` instance in app context with all core options, including 
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
 - [SECURITY.md](../../SECURITY.md)
+
+## Production docs
+
+- [Best Practices](../../docs/BEST_PRACTICES.md)
+- [Cookbook](../../docs/COOKBOOK.md)

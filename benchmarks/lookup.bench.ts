@@ -1,8 +1,21 @@
 import { Bench } from 'tinybench';
 import { CepLookup, InMemoryCache } from '../packages/cep-lookup/src';
 import { viaCepProvider } from '../packages/cep-lookup/src/providers/viacep';
+import { writeFileSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 
-async function run() {
+export interface BenchmarkRow {
+  name: string;
+  latencyAvgNs: number;
+  throughputAvgOps: number;
+}
+
+export interface BenchmarkSnapshot {
+  generatedAt: string;
+  rows: BenchmarkRow[];
+}
+
+export async function runBench(): Promise<BenchmarkSnapshot> {
   const bench = new Bench({ time: 1000 });
 
   // Setup
@@ -47,7 +60,33 @@ async function run() {
     });
 
   await bench.run();
-  console.table(bench.table());
+  const table = bench.table();
+  const rows: BenchmarkRow[] = table.map((row: any) => ({
+    name: row['Task name'],
+    latencyAvgNs: Number(String(row['Latency avg (ns)']).split(' ')[0]),
+    throughputAvgOps: Number(String(row['Throughput avg (ops/s)']).split(' ')[0]),
+  }));
+  return {
+    generatedAt: new Date().toISOString(),
+    rows,
+  };
 }
 
-run();
+async function main() {
+  const jsonArgIndex = process.argv.indexOf('--json');
+  const outputPath = jsonArgIndex >= 0 ? process.argv[jsonArgIndex + 1] : null;
+  const snapshot = await runBench();
+  console.table(
+    snapshot.rows.map((r) => ({
+      'Task name': r.name,
+      'Latency avg (ns)': r.latencyAvgNs,
+      'Throughput avg (ops/s)': r.throughputAvgOps,
+    }))
+  );
+  if (outputPath) {
+    mkdirSync(dirname(outputPath), { recursive: true });
+    writeFileSync(outputPath, JSON.stringify(snapshot, null, 2) + '\n');
+  }
+}
+
+main();

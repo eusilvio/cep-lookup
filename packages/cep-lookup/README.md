@@ -142,6 +142,12 @@ const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
 - Node.js: `20.x`, `22.x`, `24.x`
 - Maintenance policy: [SUPPORT.md](../../SUPPORT.md)
 
+## Production docs
+
+- [Best Practices](../../docs/BEST_PRACTICES.md)
+- [Migration Guide](../../docs/MIGRATION.md)
+- [Cookbook](../../docs/COOKBOOK.md)
+
 ## License
 
 MIT

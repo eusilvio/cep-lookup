@@ -83,6 +83,12 @@ console.table(health);
 console.table(metrics);
 ```
 
+## Production Docs
+
+- [Best Practices](docs/BEST_PRACTICES.md)
+- [Migration Guide](docs/MIGRATION.md)
+- [Cookbook](docs/COOKBOOK.md)
+
 ## Community
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)

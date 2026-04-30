@@ -8,6 +8,8 @@
   "scripts": {
     "build": "npm run build -w @eusilvio/cep-lookup && npm run build -w @eusilvio/cep-lookup-react && npm run build -w @eusilvio/cep-lookup-vue",
     "test": "npm run test --workspaces --if-present",
+    "benchmark": "ts-node benchmarks/lookup.bench.ts --json benchmarks/history/latest.json",
+    "benchmark:compare": "node benchmarks/compare-benchmark.mjs benchmarks/baseline.json benchmarks/history/latest.json 0.35",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish"
