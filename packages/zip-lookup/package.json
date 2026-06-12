@@ -1,0 +1,48 @@
+{
+  "name": "@eusilvio/zip-lookup",
+  "version": "2.6.0",
+  "description": "Agnostic, performant and flexible US ZIP code lookup library with race strategy and caching.",
+  "license": "MIT",
+  "author": "Silvio Souza",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eusilvio/cep-lookup.git",
+    "directory": "packages/zip-lookup"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./providers": {
+      "types": "./dist/src/providers/index.d.ts",
+      "import": "./dist/providers/index.mjs",
+      "require": "./dist/providers/index.cjs"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "npm run clean && tsc --emitDeclarationOnly --outDir dist && esbuild src/index.ts src/providers/index.ts --bundle --platform=neutral --format=cjs --outdir=dist --out-extension:.js=.cjs --minify && esbuild src/index.ts src/providers/index.ts --bundle --platform=neutral --format=esm --outdir=dist --out-extension:.js=.mjs --minify",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "esbuild": "^0.27.2",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.2"
+  }
+}

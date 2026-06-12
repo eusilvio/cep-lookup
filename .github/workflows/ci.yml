@@ -32,8 +32,53 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build all packages
-        run: npm run build
+      - name: Type-check all packages
+        run: |
+          npm run build -w @eusilvio/cep-lookup
+          npm run build -w @eusilvio/zip-lookup
+          npm run build -w @eusilvio/cep-lookup-react
+          npm run build -w @eusilvio/cep-lookup-vue
 
       - name: Run tests
         run: npm test
+
+  version-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check all packages are at the same version
+        run: |
+          node -e "
+            const pkgs = [
+              'packages/cep-lookup/package.json',
+              'packages/zip-lookup/package.json',
+              'packages/cep-lookup-react/package.json',
+              'packages/cep-lookup-vue/package.json',
+            ];
+            const versions = pkgs.map(p => {
+              const { version, name } = require('./' + p);
+              return { name, version };
+            });
+            const unique = [...new Set(versions.map(v => v.version))];
+            if (unique.length > 1) {
+              console.error('Version mismatch detected:');
+              versions.forEach(v => console.error(' ', v.name, '->', v.version));
+              process.exit(1);
+            }
+            console.log('All packages at version', unique[0]);
+          "
