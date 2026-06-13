@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1
+
+### Patch Changes
+
+- @eusilvio/cep-lookup@2.6.1
+
 ## 0.3.1
 
 ### Patch Changes
