@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/zip-lookup",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Agnostic, performant and flexible US ZIP code lookup library with race strategy and caching.",
   "license": "MIT",
   "author": "Silvio Souza",
