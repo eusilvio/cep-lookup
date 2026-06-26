@@ -216,13 +216,13 @@ lookup.off("success", listener);
 |---|---|---|---|
 | `providers` | `ZipProvider[]` | required | Provider list |
 | `fetcher` | `Fetcher` | `fetch` | Custom HTTP function |
-| `cache` | `ZipCache` | — | Cache implementation |
-| `rateLimit` | `{ requests, per }` | — | Rate limit window |
+| `cache` | `ZipCache` | - | Cache implementation |
+| `rateLimit` | `{ requests, per }` | - | Rate limit window |
 | `staggerDelay` | `number` | `100` | ms before backup providers fire |
 | `retries` | `number` | `0` | Retry count after all fail |
 | `retryDelay` | `number` | `1000` | Base retry delay (exponential) |
 | `circuitBreaker` | `CircuitBreakerOptions` | enabled | Resilience per provider |
-| `logger` | `{ debug }` | — | Debug logger |
+| `logger` | `{ debug }` | - | Debug logger |
 
 ### Methods
 

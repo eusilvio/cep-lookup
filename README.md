@@ -5,10 +5,10 @@
 [![Release](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/release.yml?label=release)](https://github.com/eusilvio/cep-lookup/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Your application should not fail because ViaCEP is down.
+> Stop depending on a single CEP provider.
 
-**cep-lookup** is a fault-tolerant CEP resolution engine — not just another API wrapper.  
-It races multiple providers in parallel, trips circuit breakers on unstable APIs, collects runtime metrics, and recovers automatically — all without changing a line of your application code.
+**cep-lookup** is a fault-tolerant CEP resolution engine - not just another API wrapper.  
+It races multiple providers in parallel, trips circuit breakers on unstable APIs, collects runtime metrics, and recovers automatically - all without changing a line of your application code.
 
 ---
 
@@ -41,7 +41,7 @@ const address = await cep.lookup("01001-000");
 // }
 ```
 
-If ViaCEP is unavailable, BrasilAPI takes over. If that trips too, APICep responds. Your users never see the failure.
+If ViaCEP is unavailable, BrasilAPI takes over. If that trips too, APICep responds. Your application keeps working even when individual providers fail.
 
 ---
 
@@ -88,6 +88,27 @@ lookup("01001000")
 ```
 
 The primary provider gets a head start. Backups fire only if needed. The fastest response wins.
+
+---
+
+## Benchmarks
+
+Internal path performance (no network, measured with [tinybench](https://github.com/tinylibs/tinybench)):
+
+| Operation | Avg latency | Throughput |
+|---|---|---|
+| CEP validation (regex) | 123 ns | 10M ops/s |
+| Cache lookup (InMemoryCache) | 48 ns | 21M ops/s |
+| Full lookup with cache hit | 605 ns | 2.6M ops/s |
+| EventEmitter dispatch | 63 ns | 17M ops/s |
+
+A cache hit resolves in under a microsecond. The overhead of the resilience layer is negligible on the hot path.
+
+Run benchmarks locally:
+
+```bash
+npx tsx benchmarks/lookup.bench.ts
+```
 
 ---
 
@@ -178,7 +199,7 @@ await cep.warmup(); // pings all providers, reorders by response time
 
 ## Error Handling
 
-All errors carry an explicit `.code` — no string parsing.
+All errors carry an explicit `.code` - no string parsing.
 
 ```ts
 import {
@@ -195,7 +216,7 @@ try {
   if (error instanceof CepNotFoundError) {
     // inform the user
   } else if (error instanceof AllProvidersFailedError) {
-    // all providers unavailable — degrade gracefully
+    // all providers unavailable - degrade gracefully
   }
 }
 ```

@@ -27,7 +27,7 @@ function parseXmlTag(xml: string, tag: string): string | undefined {
  * Creates a USPS CityStateLookup provider.
  * Requires a free USPS Web Tools API key: https://www.usps.com/business/web-tools-apis/
  *
- * Note: USPS only returns city and state — no lat/lng or county.
+ * Note: USPS only returns city and state - no lat/lng or county.
  * The provider uses a text/xml fetcher internally so no custom global fetcher is needed.
  */
 export function createUspsProvider(apiKey: string): ZipProvider {

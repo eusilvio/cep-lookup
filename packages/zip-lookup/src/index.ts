@@ -144,7 +144,7 @@ export class ZipLookup {
    * Useful to call on UI events like 'focus' on the ZIP input.
    */
   public async warmup(): Promise<ZipProvider[]> {
-    const controlZip = "10001"; // New York City — always valid
+    const controlZip = "10001"; // New York City - always valid
     const controller = new AbortController();
 
     const race = this.providers.map(async (provider) => {
