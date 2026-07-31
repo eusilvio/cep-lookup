@@ -21,6 +21,8 @@ npm install @eusilvio/cep-lookup
 - Circuit breaker per provider.
 - Provider health score and runtime metrics.
 - Event-based observability.
+- Offline fallback: state-level answers with zero network, from the official Correios CEP allocation map.
+- Zero-network CEP intelligence (`@eusilvio/cep-lookup/offline`): CEP↔state validation, allocation checks, state metadata.
 
 ## Basic Usage
 
@@ -127,6 +129,9 @@ const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
 - `retries`: retry count after failure.
 - `retryDelay`: base retry delay in ms.
 - `circuitBreaker`: `{ enabled, failureThreshold, cooldownMs }`.
+- `staleIfError`: serve an expired cache entry when all providers fail.
+- `negativeCacheTtl`: remember confirmed not-found CEPs.
+- `offlineFallback`: synthesize a partial state-level address (`partial: true`, `service: "offline"`) when everything else fails.
 
 ### Methods
 
@@ -136,6 +141,13 @@ const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
 - `getProviderHealth()`
 - `getProviderMetrics()`
 - `on(event, listener)` / `off(event, listener)`
+
+### `@eusilvio/cep-lookup/offline` (sync, zero network)
+
+- `resolveCepOffline(cep)` — state, state name, region, capital, DDD and IBGE state code.
+- `stateFromCep(cep)` — UF that owns the CEP, or `null`.
+- `isCepAllocated(cep)` — whether any provider could possibly resolve it.
+- `cepMatchesState(cep, uf)` — 0ms cross-field form validation.
 
 ## Compatibility and support
 

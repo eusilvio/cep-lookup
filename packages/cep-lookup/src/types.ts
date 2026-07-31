@@ -20,6 +20,11 @@ export interface Address {
     latitude: number;
     longitude: number;
   };
+  /**
+   * Present (and `true`) only on addresses synthesized by the offline fallback:
+   * state-level data is reliable, but city/street fields are empty.
+   */
+  partial?: boolean;
 }
 
 /**
@@ -99,6 +104,15 @@ export interface CepLookupOptions {
    * remember it and short-circuit subsequent lookups without hitting the network.
    */
   negativeCacheTtl?: number;
+  /**
+   * Last-resort resilience tier: when every provider fails with an
+   * infrastructure error (never for a genuine not-found), all retries are
+   * exhausted and no stale cache entry is usable, synthesize a partial
+   * `Address` (state + DDD, `service: "offline"`, `partial: true`) from the
+   * official Correios CEP allocation map instead of throwing.
+   * The synthesized address is never written to the cache. Default: false.
+   */
+  offlineFallback?: boolean;
 }
 
 /**
@@ -125,7 +139,7 @@ export interface BulkCepResult<T = Address> {
 
 // --- Observability Event Types ---
 
-export type EventName = 'success' | 'failure' | 'cache:hit' | 'cache:stale';
+export type EventName = 'success' | 'failure' | 'cache:hit' | 'cache:stale' | 'offline:fallback';
 
 export interface SuccessPayload {
   provider: string;
@@ -150,11 +164,18 @@ export interface CacheStalePayload {
   address: Address;
 }
 
+export interface OfflineFallbackPayload {
+  cep: string;
+  /** The synthesized partial address (state-level data only). */
+  address: Address;
+}
+
 export interface EventMap {
   success: SuccessPayload;
   failure: FailurePayload;
   'cache:hit': CacheHitPayload;
   'cache:stale': CacheStalePayload;
+  'offline:fallback': OfflineFallbackPayload;
 }
 
 export type EventListener<T extends EventName> = (payload: EventMap[T]) => void;

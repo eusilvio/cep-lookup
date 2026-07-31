@@ -56,6 +56,7 @@ If ViaCEP is unavailable, BrasilAPI takes over. If that trips too, APICep respon
 | Event-based observability | ❌ | ❌ | ✅ |
 | Retry with exponential backoff | ❌ | ❌ | ✅ |
 | Rate limiting | ❌ | ❌ | ✅ |
+| Offline fallback (zero-network) | ❌ | ❌ | ✅ |
 | Custom providers | ❌ | ❌ | ✅ |
 | React / Vue integration | ❌ | ❌ | ✅ |
 
@@ -248,6 +249,52 @@ await Promise.all([cep.lookup("01001000"), cep.lookup("01001000"), cep.lookup("0
 
 ---
 
+## Offline Resilience Layer
+
+The final tier of the fallback ladder. When every provider fails, retries are exhausted and no stale cache entry is usable, `lookup()` can still answer — synthesizing a state-level address from the official Correios CEP allocation map, bundled with the library (~2 KB, zero network):
+
+```
+providers race → retries → stale cache → offline fallback → error
+```
+
+```ts
+const cep = new CepLookup({ providers, offlineFallback: true });
+
+// Internet completely down, cold cache:
+await cep.lookup("01310-100");
+// {
+//   cep: '01310100',
+//   state: 'SP',
+//   ddd: '11',
+//   city: '', neighborhood: '', street: '',
+//   service: 'offline',
+//   partial: true   // ← degraded answer: state-level data only
+// }
+
+cep.on("offline:fallback", ({ cep }) => metrics.increment("cep.offline_fallback"));
+```
+
+A genuine not-found is **never** masked (`CepNotFoundError` still throws), and the partial address is **never** written to the cache. Check `address.partial` to render a degraded UI — e.g. keep state-based shipping estimates working while the street field falls back to manual input.
+
+### Zero-network CEP intelligence
+
+The same allocation map powers a standalone, synchronous API — importable on its own (`@eusilvio/cep-lookup/offline`, ~2 KB) for instant form validation with no engine and no network:
+
+```ts
+import { resolveCepOffline, cepMatchesState, isCepAllocated } from "@eusilvio/cep-lookup/offline";
+
+resolveCepOffline("01310-100");
+// { cep: '01310100', state: 'SP', stateName: 'São Paulo', region: 'Sudeste',
+//   capital: 'São Paulo', ddd: '11', ibgeState: '35' }
+
+cepMatchesState("01310-100", "RJ"); // false → flag the typo before any network call
+isCepAllocated("00500-000");        // false → outside every allocated range, skip the doomed lookup
+```
+
+`cepMatchesState` catches the classic checkout typo — CEP from one state, UF dropdown on another — in 0ms, and `isCepAllocated` short-circuits lookups no provider could ever resolve.
+
+---
+
 ## Cancellation
 
 `lookup()` accepts an options object with `signal` and/or `mapper` — the legacy `lookup(cep, mapper)` shorthand keeps working unchanged.
@@ -430,6 +477,7 @@ const cep = new CepLookup({
   cache: new InMemoryCache({ ttl: 10 * 60_000, maxSize: 5_000 }),
   staleIfError: { maxAgeMs: 24 * 60 * 60_000 },
   negativeCacheTtl: 60_000,
+  offlineFallback: true,
 });
 ```
 

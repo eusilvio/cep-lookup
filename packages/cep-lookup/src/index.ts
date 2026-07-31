@@ -2,10 +2,14 @@ import { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, BulkCepRes
 import { Cache, InMemoryCache, InMemoryCacheOptions, StaleCacheEntry } from "./cache";
 import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError, normalizeProviderError } from "./errors";
 import { dddByState } from "./data/ddd-by-state";
+import { validateCep } from "./validate";
+import { resolveCepOffline, toPartialAddress } from "./offline";
 
 export type { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions, StaleCacheEntry, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise };
 export { InMemoryCache };
 export { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError };
+export { resolveCepOffline, stateFromCep, isCepAllocated, cepMatchesState, toPartialAddress } from "./offline";
+export type { OfflineCepInfo, Region, StateInfo } from "./offline";
 
 /** Internal marker stored in the cache to represent a confirmed "not found" CEP (negative cache). */
 interface NegativeCacheEntry {
@@ -64,21 +68,6 @@ class EventEmitter {
       }
     });
   }
-}
-
-/**
- * @function validateCep
- * @description Validates and cleans a CEP string strictly.
- * @param {string} cep - The CEP string to validate.
- * @returns {string} The cleaned, 8-digit CEP string.
- * @throws {Error} If the CEP format is invalid.
- */
-function validateCep(cep: string): string {
-  const cepRegex = /^(\d{8}|\d{5}-\d{3})$/;
-  if (!cepRegex.test(cep)) {
-    throw new CepValidationError(cep);
-  }
-  return cep.replace("-", "");
 }
 
 /**
@@ -211,6 +200,7 @@ export class CepLookup {
   private providerState = new Map<string, ProviderRuntimeState>();
   private staleIfError: boolean | { maxAgeMs?: number };
   private negativeCacheTtl?: number;
+  private offlineFallback: boolean;
   private inFlightLookups = new Map<string, Promise<Address>>();
 
   constructor(options: CepLookupOptions) {
@@ -235,6 +225,7 @@ export class CepLookup {
     this.circuitCooldownMs = options.circuitBreaker?.cooldownMs ?? 30000;
     this.staleIfError = options.staleIfError ?? false;
     this.negativeCacheTtl = options.negativeCacheTtl;
+    this.offlineFallback = options.offlineFallback ?? false;
     this.providers.forEach((provider) => {
       this.providerState.set(provider.name, createProviderRuntimeState());
     });
@@ -545,6 +536,19 @@ export class CepLookup {
         this.log('cache:stale', { cep: cleanedCep });
         this.emitter.emit('cache:stale', { cep: cleanedCep, address: stale.value });
         return stale.value;
+      }
+    }
+
+    // Last resilience tier: a degraded, state-level answer beats no answer.
+    // Only reached on infrastructure failures (genuine not-founds threw above)
+    // and intentionally never written to the cache.
+    if (this.offlineFallback) {
+      const offline = resolveCepOffline(cleanedCep);
+      if (offline) {
+        const address = toPartialAddress(offline);
+        this.log('offline:fallback', { cep: cleanedCep });
+        this.emitter.emit('offline:fallback', { cep: cleanedCep, address });
+        return address;
       }
     }
 

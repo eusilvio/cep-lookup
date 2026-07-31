@@ -88,6 +88,38 @@ const lookup = new CepLookup({
 lookup.on("cache:stale", ({ cep }) => alerting.warn(`Serving stale data for ${cep}`));
 ```
 
+## Never return empty-handed: offline fallback
+
+```ts
+const lookup = new CepLookup({
+  providers,
+  cache: new InMemoryCache({ ttl: 10 * 60_000 }),
+  staleIfError: true,
+  offlineFallback: true, // cold cache + total outage → partial state-level address
+});
+
+const address = await lookup.lookup(cep);
+if (address.partial) {
+  // state/ddd are reliable; ask the user to type city/street manually
+  form.enableManualAddress({ state: address.state });
+}
+```
+
+## Validate CEP against the selected UF with zero network
+
+```ts
+import { cepMatchesState, isCepAllocated } from "@eusilvio/cep-lookup/offline";
+
+if (!isCepAllocated(form.cep)) {
+  return showError("Este CEP não existe em nenhuma faixa dos Correios.");
+}
+if (!cepMatchesState(form.cep, form.uf)) {
+  return showError(`Este CEP não pertence a ${form.uf}.`);
+}
+// Only now spend a network call:
+const address = await lookup.lookup(form.cep);
+```
+
 ## Cancel an in-flight lookup from a React input
 
 ```ts
