@@ -13,6 +13,13 @@ export interface Address {
   service: string;
   ibge?: string;
   ddd?: string;
+  /** Additional address complement (e.g. building/block), when the provider returns it. */
+  complement?: string;
+  /** Geographic coordinates for the address, when the provider returns them. */
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 /**
@@ -24,6 +31,16 @@ export interface Provider {
   timeout?: number;
   buildUrl: (cep: string) => string;
   transform: (response: any) => Address;
+  /**
+   * Optional: builds the URL for a reverse address search (state, city, street).
+   * Only providers that support reverse search (e.g. ViaCEP) need to implement this.
+   */
+  buildSearchUrl?: (state: string, city: string, street: string) => string;
+  /**
+   * Optional: transforms the raw reverse-search response into a list of `Address`.
+   * Required alongside `buildSearchUrl` for a provider to support `searchByAddress`.
+   */
+  transformSearch?: (response: any) => Address[];
 }
 
 /**
@@ -39,7 +56,19 @@ export type Fetcher = (url: string, signal?: AbortSignal) => Promise<any>;
 export interface RateLimitOptions {
   requests: number;
   per: number;
+  /**
+   * What to do when the rate limit is exceeded.
+   * - `throw` (default): reject immediately with `RateLimitError`.
+   * - `wait`: hold the call until a slot in the window frees up.
+   */
+  strategy?: 'throw' | 'wait';
 }
+
+/**
+ * @typedef MaybePromise
+ * @description A value that may be returned synchronously or asynchronously.
+ */
+export type MaybePromise<T> = T | Promise<T>;
 
 /**
  * @interface CepLookupOptions
@@ -59,6 +88,28 @@ export interface CepLookupOptions {
   logger?: { debug: (msg: string, data?: Record<string, unknown>) => void };
   /** Circuit breaker options for provider resilience */
   circuitBreaker?: CircuitBreakerOptions;
+  /**
+   * When all providers fail with an infrastructure error (not a genuine not-found),
+   * serve a previously cached (possibly expired) address instead of throwing.
+   * Requires a `cache` that implements `getStale`. Default: false (disabled).
+   */
+  staleIfError?: boolean | { maxAgeMs?: number };
+  /**
+   * Time-to-live (ms) for negative caching: when a CEP is confirmed not found,
+   * remember it and short-circuit subsequent lookups without hitting the network.
+   */
+  negativeCacheTtl?: number;
+}
+
+/**
+ * @interface LookupOptions
+ * @description Options accepted by the second argument of `lookup()`.
+ */
+export interface LookupOptions<T = Address> {
+  /** Aborts in-flight provider requests and rejects the lookup promise. */
+  signal?: AbortSignal;
+  /** Maps the resolved `Address` into a custom shape. */
+  mapper?: (address: Address) => T;
 }
 
 /**
@@ -74,7 +125,7 @@ export interface BulkCepResult<T = Address> {
 
 // --- Observability Event Types ---
 
-export type EventName = 'success' | 'failure' | 'cache:hit';
+export type EventName = 'success' | 'failure' | 'cache:hit' | 'cache:stale';
 
 export interface SuccessPayload {
   provider: string;
@@ -94,10 +145,16 @@ export interface CacheHitPayload {
   cep: string;
 }
 
+export interface CacheStalePayload {
+  cep: string;
+  address: Address;
+}
+
 export interface EventMap {
   success: SuccessPayload;
   failure: FailurePayload;
   'cache:hit': CacheHitPayload;
+  'cache:stale': CacheStalePayload;
 }
 
 export type EventListener<T extends EventName> = (payload: EventMap[T]) => void;
@@ -120,6 +177,8 @@ export interface ProviderHealth {
   successCount: number;
   failureCount: number;
   avgLatencyMs: number;
+  /** Approximate 95th percentile latency over the last ~50 samples. */
+  p95LatencyMs: number;
 }
 
 export interface ProviderMetrics {
@@ -130,4 +189,6 @@ export interface ProviderMetrics {
   timeoutErrors: number;
   notFoundErrors: number;
   avgLatencyMs: number;
+  /** Approximate 95th percentile latency over the last ~50 samples. */
+  p95LatencyMs: number;
 }

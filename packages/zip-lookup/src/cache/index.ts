@@ -1,11 +1,33 @@
-import { ZipAddress } from '../types';
+import { ZipAddress, MaybePromise } from '../types';
 
+/**
+ * @interface StaleCacheEntry
+ * @description Entry returned by `ZipCache.getStale`, including staleness metadata.
+ */
+export interface StaleCacheEntry {
+  value: ZipAddress;
+  isStale: boolean;
+  /** Age of the entry in milliseconds, when the cache implementation can compute it. */
+  ageMs?: number;
+}
+
+/**
+ * @interface ZipCache
+ * @description Defines the contract for a cache implementation. Every method may be
+ * implemented synchronously or asynchronously (returning a Promise) — `ZipLookup`
+ * awaits every call, so both styles are supported transparently.
+ */
 export interface ZipCache {
-  get(key: string): ZipAddress | undefined;
-  set(key: string, value: ZipAddress): void;
-  clear(): void;
-  delete?(key: string): void;
-  has?(key: string): boolean;
+  get(key: string): MaybePromise<ZipAddress | undefined>;
+  set(key: string, value: ZipAddress): MaybePromise<void>;
+  clear(): MaybePromise<void>;
+  delete?(key: string): MaybePromise<void>;
+  has?(key: string): MaybePromise<boolean>;
+  /**
+   * Optional: returns the entry for `key` even if it has expired, along with
+   * staleness metadata. Used to support the `staleIfError` option.
+   */
+  getStale?(key: string): MaybePromise<StaleCacheEntry | undefined>;
 }
 
 interface CacheEntry {
@@ -30,14 +52,30 @@ export class InMemoryCache implements ZipCache {
     this.maxSize = options?.maxSize ?? Infinity;
   }
 
+  private isExpired(entry: CacheEntry): boolean {
+    return this.ttl !== Infinity && Date.now() - entry.timestamp > this.ttl;
+  }
+
   get(key: string): ZipAddress | undefined {
     const entry = this.cache.get(key);
     if (!entry) return undefined;
-    if (this.ttl !== Infinity && Date.now() - entry.timestamp > this.ttl) {
-      this.cache.delete(key);
-      return undefined;
-    }
+    if (this.isExpired(entry)) return undefined;
     return entry.value;
+  }
+
+  /**
+   * Returns the entry for `key` even if expired, with `isStale` metadata.
+   * Unlike `get()`, this never evicts the entry, so it keeps working as a
+   * fallback source for `staleIfError`.
+   */
+  getStale(key: string): StaleCacheEntry | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    return {
+      value: entry.value,
+      isStale: this.isExpired(entry),
+      ageMs: Date.now() - entry.timestamp,
+    };
   }
 
   set(key: string, value: ZipAddress): void {
@@ -58,13 +96,9 @@ export class InMemoryCache implements ZipCache {
   }
 
   has(key: string): boolean {
-    if (!this.cache.has(key)) return false;
-    const entry = this.cache.get(key)!;
-    if (this.ttl !== Infinity && Date.now() - entry.timestamp > this.ttl) {
-      this.cache.delete(key);
-      return false;
-    }
-    return true;
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+    return !this.isExpired(entry);
   }
 
   clear(): void {

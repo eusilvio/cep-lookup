@@ -136,13 +136,19 @@ Each provider has its own circuit. One unstable API doesn't affect the others.
 ```ts
 cep.getProviderHealth();
 // [
-//   { provider: 'ViaCEP',    score: 0.96, isOpen: false, avgLatencyMs: 48,  successCount: 24, failureCount: 1 },
-//   { provider: 'BrasilAPI', score: 0.91, isOpen: false, avgLatencyMs: 113, successCount: 18, failureCount: 2 },
-//   { provider: 'APICep',    score: 0.00, isOpen: true,  avgLatencyMs: 0,   successCount: 0,  failureCount: 3 },
+//   { provider: 'ViaCEP',    score: 0.96, isOpen: false, avgLatencyMs: 48,  p95LatencyMs: 92,  successCount: 24, failureCount: 1 },
+//   { provider: 'BrasilAPI', score: 0.91, isOpen: false, avgLatencyMs: 113, p95LatencyMs: 210, successCount: 18, failureCount: 2 },
+//   { provider: 'APICep',    score: 0.00, isOpen: true,  avgLatencyMs: 0,   p95LatencyMs: 0,   successCount: 0,  failureCount: 3 },
 // ]
 ```
 
 Score weighs success rate (80%) and average latency (20%). An open circuit scores zero and is skipped on the next request.
+
+`avgLatencyMs` is an exponentially weighted moving average (recent samples matter more than old ones), and `p95LatencyMs` is an approximate 95th percentile computed over the last ~50 samples per provider — useful to spot a provider with an occasional slow tail even when its average still looks healthy.
+
+A CEP that genuinely doesn't exist (`CepNotFoundError`) is **not** treated as an infrastructure failure: it's counted in `notFoundErrors`/`failureCount` for observability, but it never increments `consecutiveFailures` or trips the circuit breaker.
+
+Once a circuit's cooldown expires, exactly one **half-open probe** request is let through. A success fully closes the circuit; a failure reopens it for a new cooldown window instead of instantly trusting the provider again.
 
 ---
 
@@ -151,8 +157,8 @@ Score weighs success rate (80%) and average latency (20%). An open circuit score
 ```ts
 cep.getProviderMetrics();
 // [
-//   { provider: 'ViaCEP',    requests: 25, successes: 24, failures: 1, timeoutErrors: 0, avgLatencyMs: 48  },
-//   { provider: 'BrasilAPI', requests: 20, successes: 18, failures: 2, timeoutErrors: 1, avgLatencyMs: 113 },
+//   { provider: 'ViaCEP',    requests: 25, successes: 24, failures: 1, timeoutErrors: 0, avgLatencyMs: 48,  p95LatencyMs: 92  },
+//   { provider: 'BrasilAPI', requests: 20, successes: 18, failures: 2, timeoutErrors: 1, avgLatencyMs: 113, p95LatencyMs: 210 },
 // ]
 ```
 
@@ -193,6 +199,88 @@ Pre-rank providers by real network latency before the first request. Call on pag
 
 ```ts
 await cep.warmup(); // pings all providers, reorders by response time
+```
+
+Each provider gets its own timeout (`provider.timeout ?? 5000ms`), so a single hung provider can never block warmup for the others.
+
+---
+
+## Cache: async, stale-if-error, negative caching
+
+`Cache` methods (`get`/`set`/`delete`/`has`/`clear`) may return their value directly or as a `Promise` — `CepLookup` awaits every call, so a Redis-backed, Cloudflare KV-backed, or any other async cache works out of the box. `InMemoryCache` itself stays fully synchronous.
+
+```ts
+class RedisCache implements Cache {
+  async get(cep: string) { /* ... */ }
+  async set(cep: string, address: Address) { /* ... */ }
+  async clear() { /* ... */ }
+}
+
+const cep = new CepLookup({ providers, cache: new RedisCache() });
+```
+
+**Stale-if-error**: when every provider fails with an infrastructure error (not a genuine not-found) and a previously cached — even expired — entry exists, serve it instead of throwing. Requires a cache that implements `getStale()` (`InMemoryCache` does).
+
+```ts
+const cep = new CepLookup({
+  providers,
+  cache: new InMemoryCache({ ttl: 10 * 60_000 }),
+  staleIfError: true, // or { maxAgeMs: 24 * 60 * 60_000 } to bound how old is acceptable
+});
+
+cep.on("cache:stale", ({ cep, address }) => {
+  logger.warn(`Serving stale address for ${cep} — all providers are down`);
+});
+```
+
+**Negative caching**: remember confirmed not-found CEPs for a while, so repeated lookups for a CEP that doesn't exist don't hit the network at all.
+
+```ts
+const cep = new CepLookup({ providers, cache: new InMemoryCache(), negativeCacheTtl: 60_000 });
+```
+
+**Request coalescing**: concurrent `lookup()` calls for the same CEP automatically share a single in-flight provider request instead of firing redundant network calls — each caller still gets its own mapped result.
+
+```ts
+// Only one network round-trip happens here, even without a cache configured.
+await Promise.all([cep.lookup("01001000"), cep.lookup("01001000"), cep.lookup("01001000")]);
+```
+
+---
+
+## Cancellation
+
+`lookup()` accepts an options object with `signal` and/or `mapper` — the legacy `lookup(cep, mapper)` shorthand keeps working unchanged.
+
+```ts
+const controller = new AbortController();
+const promise = cep.lookup("01001000", { signal: controller.signal });
+
+// e.g. on component unmount or when the user types a new CEP:
+controller.abort();
+```
+
+---
+
+## Reverse Address Search
+
+Find candidate CEPs from a state, city and street name (ViaCEP supports this natively):
+
+```ts
+const results = await cep.searchByAddress("SP", "São Paulo", "Praça da Sé");
+// Address[] — city and street must each be at least 3 characters (ViaCEP requirement)
+```
+
+---
+
+## Geographic coordinates & complement
+
+`Address.location` (`{ latitude, longitude }`) is populated by `brasilApiProvider` (BrasilAPI v2 endpoint) when available, and `Address.complement` is populated from ViaCEP's `complemento` field.
+
+```ts
+const address = await cep.lookup("01001000");
+address.location; // { latitude: -23.5505, longitude: -46.6333 } | undefined
+address.complement; // e.g. "lado par" | undefined
 ```
 
 ---
@@ -285,6 +373,26 @@ const myProvider = {
 const cep = new CepLookup({ providers: [myProvider, viaCepProvider] });
 ```
 
+### Self-hosted gateway provider
+
+If you run your own CEP gateway/proxy (see `docs/PRD-API-GATEWAY.md`) that already returns a normalized `Address`, use the built-in factory instead of writing one by hand:
+
+```ts
+import { createGatewayProvider } from "@eusilvio/cep-lookup/providers";
+
+const gatewayProvider = createGatewayProvider({ baseUrl: "https://internal.mycompany.com/cep" });
+// buildUrl -> https://internal.mycompany.com/cep/v1/cep/{cep}
+```
+
+`buildUrl` only produces a URL, so an `apiKey` isn't sent automatically — inject it via a custom `fetcher` that adds an `x-api-key` header:
+
+```ts
+const cep = new CepLookup({
+  providers: [gatewayProvider],
+  fetcher: (url, signal) => fetch(url, { signal, headers: { "x-api-key": process.env.CEP_GATEWAY_KEY! } }).then((r) => r.json()),
+});
+```
+
 ---
 
 ## Bulk Lookup
@@ -318,8 +426,10 @@ const cep = new CepLookup({
   circuitBreaker: { enabled: true, failureThreshold: 3, cooldownMs: 30_000 },
   retries: 1,
   retryDelay: 300,
-  rateLimit: { requests: 60, per: 60_000 },
+  rateLimit: { requests: 60, per: 60_000, strategy: "wait" }, // "wait" holds calls instead of throwing RateLimitError
   cache: new InMemoryCache({ ttl: 10 * 60_000, maxSize: 5_000 }),
+  staleIfError: { maxAgeMs: 24 * 60 * 60_000 },
+  negativeCacheTtl: 60_000,
 });
 ```
 

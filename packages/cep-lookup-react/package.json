@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup-react",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "description": "React hooks and provider for @eusilvio/cep-lookup",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

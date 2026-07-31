@@ -47,10 +47,94 @@ describe("Resilience and provider metrics", () => {
     await expect(lookup.lookup("01001002")).rejects.toBeInstanceOf(AllProvidersFailedError);
 
     jest.advanceTimersByTime(1001);
+    // Cooldown expired: exactly one half-open probe request is let through. It fails
+    // (the fetcher still throws), so the circuit reopens for a new cooldown period.
     await expect(lookup.lookup("01001003")).rejects.toThrow();
 
-    const healthAfterCooldown = lookup.getProviderHealth()[0];
-    expect(healthAfterCooldown.isOpen).toBe(false);
+    const healthAfterFailedProbe = lookup.getProviderHealth()[0];
+    expect(healthAfterFailedProbe.isOpen).toBe(true);
+
+    // Still within the new cooldown: the provider is skipped entirely.
+    await expect(lookup.lookup("01001004")).rejects.toBeInstanceOf(AllProvidersFailedError);
+
+    jest.useRealTimers();
+  });
+
+  it("should close the circuit when the half-open probe succeeds", async () => {
+    jest.useFakeTimers();
+    const provider = createMockProvider("Recovering");
+    let shouldFail = true;
+    const lookup = new CepLookup({
+      providers: [provider],
+      fetcher: async () => {
+        if (shouldFail) throw new Error("network down");
+        return {
+          cep: "01001000", state: "SP", city: "São Paulo", neighborhood: "Sé", street: "Praça da Sé", service: "Recovering",
+        };
+      },
+      circuitBreaker: { enabled: true, failureThreshold: 2, cooldownMs: 1000 },
+    });
+
+    await expect(lookup.lookup("01001000")).rejects.toThrow();
+    await expect(lookup.lookup("01001001")).rejects.toThrow();
+    expect(lookup.getProviderHealth()[0].isOpen).toBe(true);
+
+    jest.advanceTimersByTime(1001);
+    shouldFail = false;
+
+    // Half-open probe succeeds -> circuit fully closes.
+    await expect(lookup.lookup("01001002")).resolves.toBeDefined();
+    const health = lookup.getProviderHealth()[0];
+    expect(health.isOpen).toBe(false);
+    expect(health.consecutiveFailures).toBe(0);
+
+    jest.useRealTimers();
+  });
+
+  it("should only allow a single half-open probe at a time", async () => {
+    jest.useFakeTimers();
+    const provider = createMockProvider("SingleProbe");
+    let pendingResolvers: Array<() => void> = [];
+    let callCount = 0;
+    const lookup = new CepLookup({
+      providers: [provider],
+      staggerDelay: 0,
+      fetcher: async () => {
+        callCount += 1;
+        if (callCount <= 2) throw new Error("network down");
+        // 3rd call onward (the probe): hang until manually resolved.
+        return new Promise((resolve) => {
+          pendingResolvers.push(() =>
+            resolve({
+              cep: "01001000", state: "SP", city: "São Paulo", neighborhood: "Sé", street: "Praça da Sé", service: "SingleProbe",
+            })
+          );
+        });
+      },
+      circuitBreaker: { enabled: true, failureThreshold: 2, cooldownMs: 1000 },
+    });
+
+    await expect(lookup.lookup("01001000")).rejects.toThrow();
+    await expect(lookup.lookup("01001001")).rejects.toThrow();
+    jest.advanceTimersByTime(1001);
+
+    // Two concurrent lookups after cooldown: only one should reach the fetcher (the probe).
+    const probeA = lookup.lookup("01001002");
+    const probeB = lookup.lookup("01001003");
+
+    // Let the probe call synchronously reach the fetcher before asserting.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(callCount).toBe(3); // Only ONE new fetch beyond the initial 2 failures.
+
+    // The second concurrent lookup must fail fast (circuit still reported open for it).
+    await expect(probeB).rejects.toThrow();
+
+    // Resolve the in-flight probe.
+    pendingResolvers.forEach((r) => r());
+    await expect(probeA).resolves.toBeDefined();
+
     jest.useRealTimers();
   });
 

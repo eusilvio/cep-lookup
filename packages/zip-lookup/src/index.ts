@@ -1,18 +1,18 @@
 import {
-  ZipAddress, Fetcher, ZipProvider, ZipLookupOptions, BulkZipResult,
+  ZipAddress, Fetcher, ZipProvider, ZipLookupOptions, LookupOptions, BulkZipResult,
   RateLimitOptions, EventName, EventListener, EventMap,
-  ProviderHealth, ProviderMetrics, CircuitBreakerOptions,
+  ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise,
 } from "./types";
-import { ZipCache, InMemoryCache, InMemoryCacheOptions } from "./cache";
+import { ZipCache, InMemoryCache, InMemoryCacheOptions, StaleCacheEntry } from "./cache";
 import {
   ZipValidationError, RateLimitError, ProviderTimeoutError, ZipNotFoundError,
   AllProvidersFailedError, ProviderUnavailableError, normalizeProviderError,
 } from "./errors";
 
 export type {
-  ZipAddress, Fetcher, ZipProvider, ZipLookupOptions, BulkZipResult,
+  ZipAddress, Fetcher, ZipProvider, ZipLookupOptions, LookupOptions, BulkZipResult,
   RateLimitOptions, EventName, EventListener, EventMap, ZipCache,
-  InMemoryCacheOptions, ProviderHealth, ProviderMetrics, CircuitBreakerOptions,
+  InMemoryCacheOptions, StaleCacheEntry, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise,
 };
 export { InMemoryCache };
 export {
@@ -20,8 +20,30 @@ export {
   AllProvidersFailedError, ProviderUnavailableError,
 };
 
+/** Internal marker stored in the cache to represent a confirmed "not found" ZIP (negative cache). */
+interface NegativeCacheEntry {
+  __zipLookupNotFound: true;
+  zip: string;
+  expiresAt: number;
+}
+
+function isNegativeCacheEntry(value: unknown): value is NegativeCacheEntry {
+  return !!value && typeof value === "object" && (value as any).__zipLookupNotFound === true;
+}
+
+function makeNegativeCacheEntry(zip: string, ttlMs: number): ZipAddress {
+  const entry: NegativeCacheEntry = {
+    __zipLookupNotFound: true,
+    zip,
+    expiresAt: Date.now() + ttlMs,
+  };
+  return entry as unknown as ZipAddress;
+}
+
 class EventEmitter {
   private listeners: { [K in EventName]?: EventListener<K>[] } = {};
+
+  constructor(private logger?: { debug: (msg: string, data?: Record<string, unknown>) => void }) {}
 
   public on<T extends EventName>(eventName: T, listener: EventListener<T>): void {
     if (!this.listeners[eventName]) {
@@ -41,7 +63,13 @@ class EventEmitter {
   public emit<T extends EventName>(eventName: T, payload: EventMap[T]): void {
     const listeners = this.listeners[eventName];
     if (!listeners) return;
-    (listeners as EventListener<T>[]).forEach((listener) => listener(payload));
+    (listeners as EventListener<T>[]).forEach((listener) => {
+      try {
+        listener(payload);
+      } catch (err) {
+        this.logger?.debug('listener:error', { event: eventName, error: (err as Error)?.message });
+      }
+    });
   }
 }
 
@@ -66,15 +94,71 @@ function sanitizeAddress(address: ZipAddress): ZipAddress {
   return sanitized;
 }
 
+function parseLookupArg<T>(
+  arg?: LookupOptions<T> | ((address: ZipAddress) => T)
+): { mapper?: (address: ZipAddress) => T; signal?: AbortSignal } {
+  if (typeof arg === "function") {
+    return { mapper: arg };
+  }
+  if (arg && typeof arg === "object") {
+    return { mapper: arg.mapper, signal: arg.signal };
+  }
+  return {};
+}
+
+function toAbortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+  return new DOMException("Aborted", "AbortError");
+}
+
+function flattenAggregateErrors(errors: unknown[]): Error[] {
+  const flat: Error[] = [];
+  for (const error of errors) {
+    if (error instanceof AggregateError && Array.isArray(error.errors)) {
+      flat.push(...flattenAggregateErrors(error.errors));
+    } else {
+      flat.push(error as Error);
+    }
+  }
+  return flat;
+}
+
 interface ProviderRuntimeState {
   consecutiveFailures: number;
   successCount: number;
   failureCount: number;
   avgLatencyMs: number;
+  latencySamples: number[];
   openUntil?: number;
+  halfOpenProbeInFlight?: boolean;
   requests: number;
   timeoutErrors: number;
   notFoundErrors: number;
+}
+
+function createProviderRuntimeState(): ProviderRuntimeState {
+  return {
+    consecutiveFailures: 0,
+    successCount: 0,
+    failureCount: 0,
+    avgLatencyMs: 0,
+    latencySamples: [],
+    requests: 0,
+    timeoutErrors: 0,
+    notFoundErrors: 0,
+  };
+}
+
+const LATENCY_EWMA_ALPHA = 0.3;
+const LATENCY_SAMPLE_WINDOW = 50;
+
+function percentile95(samples: number[]): number {
+  if (samples.length === 0) return 0;
+  const sorted = [...samples].sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
+  return sorted[Math.max(0, index)];
 }
 
 export class ZipLookup {
@@ -93,11 +177,15 @@ export class ZipLookup {
   private circuitFailureThreshold: number;
   private circuitCooldownMs: number;
   private providerState = new Map<string, ProviderRuntimeState>();
+  private staleIfError: boolean | { maxAgeMs?: number };
+  private negativeCacheTtl?: number;
+  private inFlightLookups = new Map<string, Promise<ZipAddress>>();
 
   constructor(options: ZipLookupOptions) {
     this.providers = options.providers;
     this.sortedProviders = [...options.providers];
-    this.emitter = new EventEmitter();
+    this.logger = options.logger;
+    this.emitter = new EventEmitter(this.logger);
     this.fetcher = options.fetcher || (async (url: string, signal?: AbortSignal) => {
       const response = await fetch(url, { signal });
       if (!response.ok) {
@@ -110,20 +198,13 @@ export class ZipLookup {
     this.staggerDelay = options.staggerDelay ?? 100;
     this.retries = options.retries ?? 0;
     this.retryDelay = options.retryDelay ?? 1000;
-    this.logger = options.logger;
     this.circuitBreakerEnabled = options.circuitBreaker?.enabled ?? true;
     this.circuitFailureThreshold = options.circuitBreaker?.failureThreshold ?? 3;
     this.circuitCooldownMs = options.circuitBreaker?.cooldownMs ?? 30000;
+    this.staleIfError = options.staleIfError ?? false;
+    this.negativeCacheTtl = options.negativeCacheTtl;
     this.providers.forEach((provider) => {
-      this.providerState.set(provider.name, {
-        consecutiveFailures: 0,
-        successCount: 0,
-        failureCount: 0,
-        avgLatencyMs: 0,
-        requests: 0,
-        timeoutErrors: 0,
-        notFoundErrors: 0,
-      });
+      this.providerState.set(provider.name, createProviderRuntimeState());
     });
   }
 
@@ -141,13 +222,16 @@ export class ZipLookup {
 
   /**
    * Pings providers to determine the fastest one and updates internal priority order.
-   * Useful to call on UI events like 'focus' on the ZIP input.
+   * Each provider gets its own timeout (falling back to 5000ms) so a single hung
+   * provider can never block the others.
    */
   public async warmup(): Promise<ZipProvider[]> {
     const controlZip = "10001"; // New York City - always valid
-    const controller = new AbortController();
 
     const race = this.providers.map(async (provider) => {
+      const controller = new AbortController();
+      const timeoutMs = provider.timeout ?? 5000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       const start = Date.now();
       try {
         const url = provider.buildUrl(controlZip);
@@ -156,51 +240,60 @@ export class ZipLookup {
         return { provider, duration: Date.now() - start, error: false };
       } catch {
         return { provider, duration: Infinity, error: true };
+      } finally {
+        clearTimeout(timer);
       }
     });
 
     const results = await Promise.all(race);
     const sortedResults = results.sort((a, b) => a.duration - b.duration);
     this.sortedProviders = sortedResults.map(r => r.provider).filter(p => !!p);
-    controller.abort();
     return this.sortedProviders;
   }
 
   private getOrCreateProviderState(providerName: string): ProviderRuntimeState {
     const existing = this.providerState.get(providerName);
     if (existing) return existing;
-    const created: ProviderRuntimeState = {
-      consecutiveFailures: 0,
-      successCount: 0,
-      failureCount: 0,
-      avgLatencyMs: 0,
-      requests: 0,
-      timeoutErrors: 0,
-      notFoundErrors: 0,
-    };
+    const created = createProviderRuntimeState();
     this.providerState.set(providerName, created);
     return created;
   }
 
+  private recordLatency(state: ProviderRuntimeState, durationMs: number): void {
+    const isFirstSample = state.requests === 0;
+    state.avgLatencyMs = isFirstSample
+      ? durationMs
+      : (LATENCY_EWMA_ALPHA * durationMs) + ((1 - LATENCY_EWMA_ALPHA) * state.avgLatencyMs);
+    state.latencySamples.push(durationMs);
+    if (state.latencySamples.length > LATENCY_SAMPLE_WINDOW) {
+      state.latencySamples.shift();
+    }
+  }
+
   private recordProviderSuccess(providerName: string, durationMs: number): void {
     const state = this.getOrCreateProviderState(providerName);
+    this.recordLatency(state, durationMs);
     state.requests += 1;
     state.successCount += 1;
     state.consecutiveFailures = 0;
-    const n = state.successCount + state.failureCount;
-    state.avgLatencyMs = n === 1 ? durationMs : ((state.avgLatencyMs * (n - 1)) + durationMs) / n;
     state.openUntil = undefined;
+    state.halfOpenProbeInFlight = false;
   }
 
   private recordProviderFailure(providerName: string, durationMs: number, error: Error): void {
     const state = this.getOrCreateProviderState(providerName);
+    this.recordLatency(state, durationMs);
     state.requests += 1;
     state.failureCount += 1;
-    state.consecutiveFailures += 1;
-    const n = state.successCount + state.failureCount;
-    state.avgLatencyMs = n === 1 ? durationMs : ((state.avgLatencyMs * (n - 1)) + durationMs) / n;
+    const isNotFound = error instanceof ZipNotFoundError;
     if (error instanceof ProviderTimeoutError) state.timeoutErrors += 1;
-    if (error instanceof ZipNotFoundError) state.notFoundErrors += 1;
+    if (isNotFound) state.notFoundErrors += 1;
+    if (isNotFound) {
+      state.halfOpenProbeInFlight = false;
+      return;
+    }
+    state.consecutiveFailures += 1;
+    state.halfOpenProbeInFlight = false;
     if (this.circuitBreakerEnabled && state.consecutiveFailures >= this.circuitFailureThreshold) {
       state.openUntil = Date.now() + this.circuitCooldownMs;
     }
@@ -209,13 +302,16 @@ export class ZipLookup {
   private isProviderOpen(providerName: string): boolean {
     if (!this.circuitBreakerEnabled) return false;
     const state = this.getOrCreateProviderState(providerName);
-    if (!state.openUntil) return false;
-    if (Date.now() >= state.openUntil) {
-      state.openUntil = undefined;
-      state.consecutiveFailures = 0;
-      return false;
-    }
-    return true;
+    if (state.openUntil === undefined) return false;
+    if (Date.now() < state.openUntil) return true;
+    if (state.halfOpenProbeInFlight) return true;
+    state.halfOpenProbeInFlight = true;
+    return false;
+  }
+
+  private releaseHalfOpenProbe(providerName: string): void {
+    const state = this.getOrCreateProviderState(providerName);
+    state.halfOpenProbeInFlight = false;
   }
 
   private scoreProvider(provider: ZipProvider): number {
@@ -240,6 +336,7 @@ export class ZipLookup {
           successCount: state.successCount,
           failureCount: state.failureCount,
           avgLatencyMs: Number(state.avgLatencyMs.toFixed(2)),
+          p95LatencyMs: Number(percentile95(state.latencySamples).toFixed(2)),
         };
       })
       .sort((a, b) => b.score - a.score);
@@ -256,59 +353,177 @@ export class ZipLookup {
         timeoutErrors: state.timeoutErrors,
         notFoundErrors: state.notFoundErrors,
         avgLatencyMs: Number(state.avgLatencyMs.toFixed(2)),
+        p95LatencyMs: Number(percentile95(state.latencySamples).toFixed(2)),
       };
     });
   }
 
-  private checkRateLimit(): void {
+  private async checkRateLimit(): Promise<void> {
     if (!this.rateLimit) return;
-    const now = Date.now();
-    const windowStart = now - this.rateLimit.per;
-    this.requestTimestamps = this.requestTimestamps.filter((ts) => ts > windowStart);
-    if (this.requestTimestamps.length >= this.rateLimit.requests) {
-      throw new RateLimitError(this.rateLimit.requests, this.rateLimit.per);
+    const strategy = this.rateLimit.strategy ?? 'throw';
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const now = Date.now();
+      const windowStart = now - this.rateLimit.per;
+      this.requestTimestamps = this.requestTimestamps.filter((ts) => ts > windowStart);
+      if (this.requestTimestamps.length < this.rateLimit.requests) {
+        this.requestTimestamps.push(now);
+        return;
+      }
+      if (strategy === 'throw') {
+        throw new RateLimitError(this.rateLimit.requests, this.rateLimit.per);
+      }
+      const oldest = this.requestTimestamps[0];
+      const waitMs = Math.max(oldest + this.rateLimit.per - now, 1);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
-    this.requestTimestamps.push(now);
   }
 
-  async lookup<T = ZipAddress>(zip: string, mapper?: (address: ZipAddress) => T): Promise<T> {
-    this.checkRateLimit();
+  private isStaleUsable(entry: StaleCacheEntry): boolean {
+    if (!this.staleIfError) return false;
+    if (typeof this.staleIfError === 'object' && this.staleIfError.maxAgeMs !== undefined) {
+      if (entry.ageMs === undefined) return true;
+      return entry.ageMs <= this.staleIfError.maxAgeMs;
+    }
+    return true;
+  }
+
+  async lookup<T = ZipAddress>(zip: string, arg?: LookupOptions<T> | ((address: ZipAddress) => T)): Promise<T> {
+    const { mapper, signal: externalSignal } = parseLookupArg<T>(arg);
+    if (this.rateLimit) {
+      await this.checkRateLimit();
+    }
     const cleanedZip = validateZip(zip);
     this.log('lookup:start', { zip: cleanedZip });
 
     if (this.cache) {
-      const cachedAddress = this.cache.get(cleanedZip);
-      if (cachedAddress) {
-        this.log('cache:hit', { zip: cleanedZip });
-        this.emitter.emit('cache:hit', { zip: cleanedZip });
-        return mapper ? mapper(cachedAddress) : (cachedAddress as ZipAddress as T);
+      const cached = await this.cache.get(cleanedZip);
+      if (cached !== undefined) {
+        if (isNegativeCacheEntry(cached)) {
+          if (Date.now() < cached.expiresAt) {
+            throw new ZipNotFoundError(cleanedZip);
+          }
+        } else {
+          this.log('cache:hit', { zip: cleanedZip });
+          this.emitter.emit('cache:hit', { zip: cleanedZip });
+          return mapper ? mapper(cached) : (cached as ZipAddress as T);
+        }
       }
     }
 
+    const address = externalSignal
+      ? await this.fetchWithRetryAndFallback(cleanedZip, externalSignal)
+      : await this.dedupedFetch(cleanedZip);
+
+    return mapper ? mapper(address) : (address as ZipAddress as T);
+  }
+
+  /**
+   * Request coalescing (singleflight): concurrent lookups for the same ZIP share the
+   * same in-flight promise. Only used when no external `signal` is supplied.
+   */
+  private dedupedFetch(cleanedZip: string): Promise<ZipAddress> {
+    const existing = this.inFlightLookups.get(cleanedZip);
+    if (existing) return existing;
+
+    const promise = this.fetchWithRetryAndFallback(cleanedZip);
+    this.inFlightLookups.set(cleanedZip, promise);
+    const release = () => {
+      if (this.inFlightLookups.get(cleanedZip) === promise) {
+        this.inFlightLookups.delete(cleanedZip);
+      }
+    };
+    promise.then(release, release);
+    return promise;
+  }
+
+  private async fetchWithRetryAndFallback(cleanedZip: string, externalSignal?: AbortSignal): Promise<ZipAddress> {
     let lastError: Error | undefined;
     const maxAttempts = 1 + this.retries;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (externalSignal?.aborted) {
+        throw toAbortError(externalSignal);
+      }
       if (attempt > 0) {
         const delay = this.retryDelay * Math.pow(2, attempt - 1);
         this.log('retry:attempt', { attempt, zip: cleanedZip, delay });
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       try {
-        return await this._lookupFromProviders(cleanedZip, mapper);
+        const address = await this._lookupFromProviders(cleanedZip, externalSignal);
+        if (this.cache) {
+          await this.cache.set(cleanedZip, address);
+        }
+        return address;
       } catch (error) {
+        if (externalSignal?.aborted) {
+          throw toAbortError(externalSignal);
+        }
         if (error instanceof ZipValidationError || error instanceof RateLimitError) {
           throw error;
+        }
+
+        const notFoundError = this.asGenuineNotFound(error);
+        if (notFoundError) {
+          if (this.cache && this.negativeCacheTtl) {
+            await this.cache.set(cleanedZip, makeNegativeCacheEntry(cleanedZip, this.negativeCacheTtl));
+          }
+          throw notFoundError;
         }
         lastError = error as Error;
       }
     }
+
+    if (this.cache?.getStale) {
+      const stale = await this.cache.getStale(cleanedZip);
+      if (stale && !isNegativeCacheEntry(stale.value) && this.isStaleUsable(stale)) {
+        this.log('cache:stale', { zip: cleanedZip });
+        this.emitter.emit('cache:stale', { zip: cleanedZip, address: stale.value });
+        return stale.value;
+      }
+    }
+
     throw lastError!;
   }
 
-  private async _lookupFromProviders<T = ZipAddress>(cleanedZip: string, mapper?: (address: ZipAddress) => T): Promise<T> {
+  private asGenuineNotFound(error: unknown): ZipNotFoundError | undefined {
+    if (error instanceof ZipNotFoundError) {
+      return error;
+    }
+    if (error instanceof AllProvidersFailedError) {
+      const allNotFound = error.errors.length > 0 && error.errors.every((e) => e instanceof ZipNotFoundError);
+      if (allNotFound) {
+        return new ZipNotFoundError((error.errors[0] as ZipNotFoundError).zip);
+      }
+    }
+    return undefined;
+  }
+
+  private async _lookupFromProviders(cleanedZip: string, externalSignal?: AbortSignal): Promise<ZipAddress> {
     const controller = new AbortController();
     const { signal } = controller;
+
+    let onExternalAbort: (() => void) | undefined;
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        onExternalAbort = () => controller.abort();
+        externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+      }
+    }
+
+    try {
+      return await this.raceProviders(cleanedZip, controller, signal);
+    } finally {
+      if (externalSignal && onExternalAbort) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
+    }
+  }
+
+  private async raceProviders(cleanedZip: string, controller: AbortController, signal: AbortSignal): Promise<ZipAddress> {
     const availableProviders = this.sortedProviders.filter((p) => !this.isProviderOpen(p.name));
     const providersByHealth = [...availableProviders].sort((a, b) => this.scoreProvider(b) - this.scoreProvider(a));
     const selectedProviders = providersByHealth.length > 0
@@ -352,13 +567,14 @@ export class ZipLookup {
           this.recordProviderSuccess(provider.name, duration);
           this.log('provider:success', { provider: provider.name, zip: cleanedZip, duration });
           this.emitter.emit('success', { provider: provider.name, zip: cleanedZip, duration, address: sanitized });
-          if (this.cache) this.cache.set(cleanedZip, sanitized);
-          return mapper ? mapper(sanitized) : (sanitized as ZipAddress as T);
+          return sanitized;
         })
         .catch((error) => {
           const duration = Date.now() - startTime;
           const normalizedError = normalizeProviderError(error, cleanedZip, provider.name);
-          if ((normalizedError as Error).name !== 'AbortError' && !(normalizedError instanceof ProviderTimeoutError)) {
+          if ((normalizedError as Error).name === 'AbortError') {
+            this.releaseHalfOpenProbe(provider.name);
+          } else if (!(normalizedError instanceof ProviderTimeoutError)) {
             this.recordProviderFailure(provider.name, duration, normalizedError);
             this.log('provider:failure', { provider: provider.name, zip: cleanedZip, error: normalizedError.message });
             this.emitter.emit('failure', { provider: provider.name, zip: cleanedZip, duration, error: normalizedError });
@@ -383,7 +599,7 @@ export class ZipLookup {
     let staggerTimeout: ReturnType<typeof setTimeout> | null = null;
     let triggerOthers: (() => void) | null = null;
 
-    const secondaryPromise = new Promise<T>((resolve, reject) => {
+    const secondaryPromise = new Promise<ZipAddress>((resolve, reject) => {
       triggerOthers = () => {
         if (staggerTimeout) clearTimeout(staggerTimeout);
         if (signal.aborted) return;
@@ -402,7 +618,7 @@ export class ZipLookup {
       return await Promise.any([primaryPromise, secondaryPromise]);
     } catch (aggregateError) {
       const errors = (aggregateError as AggregateError).errors || [aggregateError];
-      throw new AllProvidersFailedError(errors);
+      throw new AllProvidersFailedError(flattenAggregateErrors(errors));
     } finally {
       if (staggerTimeout) clearTimeout(staggerTimeout);
       controller.abort();
