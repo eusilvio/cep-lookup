@@ -1,6 +1,6 @@
 {
   "name": "@eusilvio/cep-lookup-vue",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Vue 3 composition API hooks for @eusilvio/cep-lookup",
   "license": "MIT",
   "author": "Silvio Souza",
