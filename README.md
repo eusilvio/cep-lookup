@@ -208,16 +208,59 @@ Each provider gets its own timeout (`provider.timeout ?? 5000ms`), so a single h
 
 ## Cache: async, stale-if-error, negative caching
 
-`Cache` methods (`get`/`set`/`delete`/`has`/`clear`) may return their value directly or as a `Promise` — `CepLookup` awaits every call, so a Redis-backed, Cloudflare KV-backed, or any other async cache works out of the box. `InMemoryCache` itself stays fully synchronous.
+`Cache` methods (`get`/`set`/`delete`/`has`/`clear`) may return their value directly or as a `Promise` — `CepLookup` awaits every call, so an async cache works out of the box. `InMemoryCache` itself stays fully synchronous.
+
+### Persistent cache adapters
+
+`InMemoryCache` dies with the process (or the page reload). Four ready-made adapters, shipped in the `@eusilvio/cep-lookup/cache` subpath, keep the cache where it belongs — all of them implement `getStale()`, so `staleIfError` works with every one:
+
+| Adapter | Backend | Use it for |
+| --- | --- | --- |
+| `WebStorageCache` | `localStorage` / `sessionStorage` | Browser apps: survives reload, ~500 entries |
+| `IndexedDBCache` | IndexedDB | Browser apps resolving many CEPs, off the main thread |
+| `RedisCache` | `ioredis`, `node-redis`, `@upstash/redis` | Servers: one lookup per CEP across every process |
+| `CloudflareKVCache` | Workers KV | Edge: resolved in one colo, served from all of them |
 
 ```ts
-class RedisCache implements Cache {
-  async get(cep: string) { /* ... */ }
-  async set(cep: string, address: Address) { /* ... */ }
-  async clear() { /* ... */ }
-}
+import { CepLookup } from "@eusilvio/cep-lookup";
+import { WebStorageCache } from "@eusilvio/cep-lookup/cache";
 
-const cep = new CepLookup({ providers, cache: new RedisCache() });
+const cep = new CepLookup({
+  providers,
+  cache: new WebStorageCache({ ttl: 24 * 60 * 60_000, maxSize: 300 }),
+  staleIfError: true,
+});
+```
+
+```ts
+import Redis from "ioredis";
+import { RedisCache } from "@eusilvio/cep-lookup/cache";
+
+const cep = new CepLookup({
+  providers,
+  cache: new RedisCache({
+    client: new Redis(process.env.REDIS_URL!),
+    ttl: 7 * 24 * 60 * 60_000,          // logical freshness
+    evictAfter: 30 * 24 * 60 * 60_000,  // physical expiry — leaves room for stale reads
+  }),
+  staleIfError: true,
+});
+```
+
+Shared options: `ttl` (logical freshness), `namespace` (key prefix, default `cep-lookup` — adapters never touch keys outside it), `evictAfter` (physical expiry for stores that have one) and `onError` (a cache failure is reported here and swallowed, never propagated into `lookup()`). Zero dependencies: clients and bindings are injected, matched structurally.
+
+**Custom backend**: implement the 3-method `KeyValueDriver` and `KeyValueCache` handles serialization, namespacing, TTL and staleness for you.
+
+```ts
+import { KeyValueCache, KeyValueDriver } from "@eusilvio/cep-lookup/cache";
+
+const driver: KeyValueDriver = {
+  get: (key) => myStore.read(key),
+  set: (key, value) => myStore.write(key, value),
+  delete: (key) => myStore.remove(key),
+};
+
+const cep = new CepLookup({ providers, cache: new KeyValueCache(driver, { ttl: 600_000 }) });
 ```
 
 **Stale-if-error**: when every provider fails with an infrastructure error (not a genuine not-found) and a previously cached — even expired — entry exists, serve it instead of throwing. Requires a cache that implements `getStale()` (`InMemoryCache` does).

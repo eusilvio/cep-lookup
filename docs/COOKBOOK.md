@@ -54,26 +54,77 @@ app.get("/internal/cep-metrics", (_req, res) => {
 });
 ```
 
-## Async cache backed by Redis
+## Shared cache across every server process
 
 ```ts
-import { Cache } from "@eusilvio/cep-lookup";
+import Redis from "ioredis";
+import { RedisCache } from "@eusilvio/cep-lookup/cache";
 
-class RedisCache implements Cache {
-  constructor(private client: Redis) {}
-  async get(cep: string) {
-    const raw = await this.client.get(`cep:${cep}`);
-    return raw ? JSON.parse(raw) : undefined;
-  }
-  async set(cep: string, address: Address) {
-    await this.client.set(`cep:${cep}`, JSON.stringify(address), "EX", 600);
-  }
-  async clear() {
-    /* flush the relevant keys */
-  }
-}
+const lookup = new CepLookup({
+  providers,
+  cache: new RedisCache({
+    client: new Redis(process.env.REDIS_URL!),
+    ttl: 7 * 24 * 60 * 60_000,
+    evictAfter: 30 * 24 * 60 * 60_000,
+    onError: (error, operation) => logger.warn({ error, operation }, "cep cache degraded"),
+  }),
+  staleIfError: true,
+});
+```
 
-const lookup = new CepLookup({ providers, cache: new RedisCache(redisClient) });
+Works with `node-redis` and `@upstash/redis` too — the `SET` dialect is detected on the first write.
+
+## Cache that survives a page reload
+
+```ts
+import { WebStorageCache } from "@eusilvio/cep-lookup/cache";
+
+const lookup = new CepLookup({
+  providers,
+  cache: new WebStorageCache({ ttl: 24 * 60 * 60_000, maxSize: 300 }),
+  staleIfError: true,
+});
+```
+
+`sessionStorage` for a per-tab cache: `new WebStorageCache({ storage: sessionStorage })`. For apps resolving hundreds of CEPs, swap in `IndexedDBCache` — same options, no main-thread blocking, no 5 MB origin budget.
+
+## Cache at the edge (Cloudflare Workers)
+
+```ts
+import { CloudflareKVCache } from "@eusilvio/cep-lookup/cache";
+
+export default {
+  async fetch(request: Request, env: Env) {
+    const lookup = new CepLookup({
+      providers,
+      cache: new CloudflareKVCache({
+        namespaceBinding: env.CEP_CACHE,
+        ttl: 24 * 60 * 60_000,
+        evictAfter: 30 * 24 * 60 * 60_000,
+      }),
+      staleIfError: true,
+    });
+
+    const url = new URL(request.url);
+    return Response.json(await lookup.lookup(url.searchParams.get("cep")!));
+  },
+};
+```
+
+## Cache on a backend nobody wrote an adapter for
+
+```ts
+import { KeyValueCache, KeyValueDriver } from "@eusilvio/cep-lookup/cache";
+
+// Three methods over opaque strings — TTL, namespacing, staleness and error
+// isolation come from KeyValueCache.
+const driver: KeyValueDriver = {
+  get: (key) => memcached.get(key),
+  set: (key, value, evictAfterMs) => memcached.set(key, value, evictAfterMs),
+  delete: (key) => memcached.del(key),
+};
+
+const lookup = new CepLookup({ providers, cache: new KeyValueCache(driver, { ttl: 600_000 }) });
 ```
 
 ## Degrade to stale data during a total outage

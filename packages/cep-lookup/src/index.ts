@@ -1,5 +1,6 @@
 import { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise } from "./types";
-import { Cache, InMemoryCache, InMemoryCacheOptions, StaleCacheEntry } from "./cache";
+import { Cache, StaleCacheEntry } from "./cache/types";
+import { InMemoryCache, InMemoryCacheOptions } from "./cache/in-memory";
 import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError, normalizeProviderError } from "./errors";
 import { dddByState } from "./data/ddd-by-state";
 import { validateCep } from "./validate";

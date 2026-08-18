@@ -1,112 +1,26 @@
+export type { Cache, StaleCacheEntry } from './types';
+export { InMemoryCache } from './in-memory';
+export type { InMemoryCacheOptions } from './in-memory';
 
-import { Address, MaybePromise } from '../types';
+export { KeyValueCache, encodeEntry, decodeEntry } from './kv';
+export type { KeyValueDriver, KeyValueCacheOptions } from './kv';
 
-/**
- * @interface StaleCacheEntry
- * @description Entry returned by `Cache.getStale`, including staleness metadata.
- */
-export interface StaleCacheEntry {
-  value: Address;
-  isStale: boolean;
-  /** Age of the entry in milliseconds, when the cache implementation can compute it. */
-  ageMs?: number;
-}
+export { WebStorageCache, WebStorageDriver } from './adapters/web-storage';
+export type { WebStorageCacheOptions, WebStorageLike } from './adapters/web-storage';
 
-/**
- * @interface Cache
- * @description Defines the contract for a cache implementation. Every method may be
- * implemented synchronously or asynchronously (returning a Promise) — `CepLookup`
- * awaits every call, so both styles are supported transparently.
- */
-export interface Cache {
-  get(key: string): MaybePromise<Address | undefined>;
-  set(key: string, value: Address): MaybePromise<void>;
-  clear(): MaybePromise<void>;
-  delete?(key: string): MaybePromise<void>;
-  has?(key: string): MaybePromise<boolean>;
-  /**
-   * Optional: returns the entry for `key` even if it has expired, along with
-   * staleness metadata. Used to support the `staleIfError` option.
-   */
-  getStale?(key: string): MaybePromise<StaleCacheEntry | undefined>;
-}
+export { IndexedDBCache, IndexedDBDriver } from './adapters/indexeddb';
+export type {
+  IndexedDBCacheOptions,
+  IDBFactoryLike,
+  IDBDatabaseLike,
+  IDBObjectStoreLike,
+  IDBTransactionLike,
+  IDBRequestLike,
+  IDBOpenRequestLike,
+} from './adapters/indexeddb';
 
-interface CacheEntry {
-  value: Address;
-  timestamp: number;
-}
+export { RedisCache, RedisDriver } from './adapters/redis';
+export type { RedisCacheOptions, RedisLikeClient, RedisSetDialect } from './adapters/redis';
 
-export interface InMemoryCacheOptions {
-  /** Time-to-live in milliseconds. Default: Infinity (no expiry) */
-  ttl?: number;
-  /** Maximum number of entries. Default: Infinity (no limit) */
-  maxSize?: number;
-}
-
-/**
- * @class InMemoryCache
- * @description In-memory cache with optional TTL and size limit. Fully synchronous.
- */
-export class InMemoryCache implements Cache {
-  private cache = new Map<string, CacheEntry>();
-  private ttl: number;
-  private maxSize: number;
-
-  constructor(options?: InMemoryCacheOptions) {
-    this.ttl = options?.ttl ?? Infinity;
-    this.maxSize = options?.maxSize ?? Infinity;
-  }
-
-  private isExpired(entry: CacheEntry): boolean {
-    return this.ttl !== Infinity && Date.now() - entry.timestamp > this.ttl;
-  }
-
-  get(key: string): Address | undefined {
-    const entry = this.cache.get(key);
-    if (!entry) return undefined;
-    if (this.isExpired(entry)) return undefined;
-    return entry.value;
-  }
-
-  /**
-   * Returns the entry for `key` even if expired, with `isStale` metadata.
-   * Unlike `get()`, this never evicts the entry, so it keeps working as a
-   * fallback source for `staleIfError`.
-   */
-  getStale(key: string): StaleCacheEntry | undefined {
-    const entry = this.cache.get(key);
-    if (!entry) return undefined;
-    return {
-      value: entry.value,
-      isStale: this.isExpired(entry),
-      ageMs: Date.now() - entry.timestamp,
-    };
-  }
-
-  set(key: string, value: Address): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-    if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.cache.delete(oldestKey);
-      }
-    }
-    this.cache.set(key, { value, timestamp: Date.now() });
-  }
-
-  delete(key: string): void {
-    this.cache.delete(key);
-  }
-
-  has(key: string): boolean {
-    const entry = this.cache.get(key);
-    if (!entry) return false;
-    return !this.isExpired(entry);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-}
+export { CloudflareKVCache, CloudflareKVDriver } from './adapters/cloudflare-kv';
+export type { CloudflareKVCacheOptions, KVNamespaceLike } from './adapters/cloudflare-kv';

@@ -57,6 +57,28 @@ Use cache for repeated CEP lookups and bulk jobs.
 cache: new InMemoryCache({ ttl: 10 * 60_000, maxSize: 5000 })
 ```
 
+Pick the backend by how far the cache must survive:
+
+| Lifetime you need | Adapter |
+| --- | --- |
+| One process | `InMemoryCache` |
+| Page reload | `WebStorageCache` (or `IndexedDBCache` for high volume) |
+| Every server process | `RedisCache` |
+| Every edge colo | `CloudflareKVCache` |
+
+```ts
+import { RedisCache } from "@eusilvio/cep-lookup/cache";
+
+cache: new RedisCache({
+  client,
+  ttl: 7 * 24 * 60 * 60_000,          // CEP data changes on the order of months
+  evictAfter: 30 * 24 * 60 * 60_000,  // keep entries around for stale-if-error
+  onError: (error, operation) => logger.warn({ error, operation }, "cep cache degraded"),
+})
+```
+
+Set `evictAfter` well above `ttl`: `ttl` decides what is *fresh*, `evictAfter` decides what still *exists* for `staleIfError` to serve during an outage. A cache failure never breaks a lookup — it is reported to `onError` and swallowed.
+
 ## 7) Error handling
 
 Handle standardized errors and user feedback explicitly.
