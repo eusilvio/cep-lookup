@@ -3,6 +3,7 @@
 [![NPM Version](https://img.shields.io/npm/v/@eusilvio/zip-lookup.svg)](https://www.npmjs.com/package/@eusilvio/zip-lookup)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/ci.yml)](https://github.com/eusilvio/cep-lookup/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/docs-eusilvio.github.io-10b981)](https://eusilvio.github.io/cep-lookup/)
 
 US ZIP code lookup engine with multi-provider race, resilience controls, and metrics.
 

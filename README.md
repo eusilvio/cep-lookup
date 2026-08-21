@@ -4,8 +4,11 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/ci.yml)](https://github.com/eusilvio/cep-lookup/actions)
 [![Release](https://img.shields.io/github/actions/workflow/status/eusilvio/cep-lookup/release.yml?label=release)](https://github.com/eusilvio/cep-lookup/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/docs-eusilvio.github.io-10b981)](https://eusilvio.github.io/cep-lookup/)
 
 > Stop depending on a single CEP provider.
+
+**Documentation: [https://eusilvio.github.io/cep-lookup](https://eusilvio.github.io/cep-lookup/)** - guides, cookbook and full API reference, in English and Portuguese.
 
 **cep-lookup** is a fault-tolerant CEP resolution engine - not just another API wrapper.  
 It races multiple providers in parallel, trips circuit breakers on unstable APIs, collects runtime metrics, and recovers automatically - all without changing a line of your application code.

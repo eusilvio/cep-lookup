@@ -2,6 +2,8 @@
 
 React hooks/provider for [`@eusilvio/cep-lookup`](https://www.npmjs.com/package/@eusilvio/cep-lookup).
 
+**Documentation: [https://eusilvio.github.io/cep-lookup](https://eusilvio.github.io/cep-lookup/)**
+
 ## Installation
 
 ```bash
