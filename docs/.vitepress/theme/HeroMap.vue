@@ -159,7 +159,7 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 520px;
+  height: 640px;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
@@ -302,7 +302,7 @@ onUnmounted(() => {
 
 @media (max-width: 960px) {
   .hero-map {
-    height: 430px;
+    height: 480px;
     opacity: 0.5;
   }
 }
