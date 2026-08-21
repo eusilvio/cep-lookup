@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="cep-lookup">
+  <defs>
+    <linearGradient id="cl-grad" x1="10" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34d399" />
+      <stop offset="1" stop-color="#0ea5e9" />
+    </linearGradient>
+    <mask id="cl-hole">
+      <rect width="48" height="48" fill="#fff" />
+      <circle cx="31" cy="19" r="5" fill="#000" />
+    </mask>
+  </defs>
+
+  <g fill="none" stroke="url(#cl-grad)" stroke-width="3.6" stroke-linecap="round">
+    <path d="M17.07 28.75A17 17 0 0 1 17.07 9.25" opacity=".55" />
+    <path d="M10.22 31A24 24 0 0 1 10.22 7" opacity=".28" />
+  </g>
+
+  <path
+    mask="url(#cl-hole)"
+    fill="url(#cl-grad)"
+    d="M31 6C23.82 6 18 11.82 18 19c0 8.5 13 23 13 23s13-14.5 13-23c0-7.18-5.82-13-13-13z"
+  />
+</svg>

@@ -156,9 +156,9 @@ const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
 
 ## Production docs
 
-- [Best Practices](../../docs/BEST_PRACTICES.md)
-- [Migration Guide](../../docs/MIGRATION.md)
-- [Cookbook](../../docs/COOKBOOK.md)
+- [Best Practices](https://eusilvio.github.io/cep-lookup/en/guide/best-practices)
+- [Migration Guide](https://eusilvio.github.io/cep-lookup/en/guide/migration)
+- [Cookbook](https://eusilvio.github.io/cep-lookup/en/guide/cookbook)
 
 ## License
 

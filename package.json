@@ -12,13 +12,17 @@
     "benchmark:compare": "node benchmarks/compare-benchmark.mjs benchmarks/baseline.json benchmarks/history/latest.json 0.35",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
     "find-up": "^8.0.0",
     "pkg-dir": "^8.0.0",
     "tinybench": "^6.0.0",
     "typescript": "^5.9.2",
-    "@changesets/cli": "^2.29.7"
+    "vitepress": "^1.6.4"
   }
 }

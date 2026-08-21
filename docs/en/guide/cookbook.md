@@ -1,6 +1,8 @@
 # Cookbook
 
-## React: production provider setup
+Copy-ready snippets. Each assumes `providers` is already defined.
+
+## React: production setup
 
 ```tsx
 <CepProvider
@@ -8,23 +10,25 @@
   retries={1}
   retryDelay={300}
   rateLimit={{ requests: 60, per: 60_000 }}
-  circuitBreaker={{ enabled: true, failureThreshold: 3, cooldownMs: 30000 }}
-/>
+  circuitBreaker={{ enabled: true, failureThreshold: 3, cooldownMs: 30_000 }}
+>
+  <App />
+</CepProvider>
 ```
 
-## Vue: custom core instance with resilience
+## Vue: custom instance with resilience
 
 ```ts
 const instance = new CepLookup({
   providers: [viaCepProvider, brasilApiProvider],
   retries: 1,
-  circuitBreaker: { enabled: true, failureThreshold: 3, cooldownMs: 30000 },
+  circuitBreaker: { enabled: true, failureThreshold: 3, cooldownMs: 30_000 },
 });
 
 const { address, error } = useCepLookup("01001000", { instance });
 ```
 
-## API route / backend usage
+## Backend API route
 
 ```ts
 export async function getAddress(cep: string) {
@@ -37,10 +41,28 @@ export async function getAddress(cep: string) {
 }
 ```
 
+## HTTP endpoint with correct status codes
+
+```ts
+app.get("/cep/:cep", async (req, res) => {
+  try {
+    res.json(await lookup.lookup(req.params.cep));
+  } catch (error: any) {
+    const status = { INVALID_CEP: 400, NOT_FOUND: 404, RATE_LIMITED: 429 }[error.code] ?? 502;
+    res.status(status).json({ code: error.code ?? "UNKNOWN", message: error.message });
+  }
+});
+```
+
 ## Bulk lookup with concurrency
 
 ```ts
 const results = await lookup.lookupCeps(["01001000", "01310930", "99999999"], 3);
+
+results.forEach(({ cep, data, error }) => {
+  if (error) console.error(`${cep}: failed`);
+  else console.log(`${cep}: ${data?.street}`);
+});
 ```
 
 ## Metrics snapshot endpoint
@@ -72,7 +94,7 @@ const lookup = new CepLookup({
 });
 ```
 
-Works with `node-redis` and `@upstash/redis` too — the `SET` dialect is detected on the first write.
+Works with `node-redis` and `@upstash/redis` too - the `SET` dialect is detected on the first write.
 
 ## Cache that survives a page reload
 
@@ -86,7 +108,7 @@ const lookup = new CepLookup({
 });
 ```
 
-`sessionStorage` for a per-tab cache: `new WebStorageCache({ storage: sessionStorage })`. For apps resolving hundreds of CEPs, swap in `IndexedDBCache` — same options, no main-thread blocking, no 5 MB origin budget.
+`sessionStorage` for a per-tab cache: `new WebStorageCache({ storage: sessionStorage })`. For apps resolving hundreds of CEPs, swap in `IndexedDBCache` - same options, no main-thread blocking, no 5 MB origin budget.
 
 ## Cache at the edge (Cloudflare Workers)
 
@@ -116,7 +138,7 @@ export default {
 ```ts
 import { KeyValueCache, KeyValueDriver } from "@eusilvio/cep-lookup/cache";
 
-// Three methods over opaque strings — TTL, namespacing, staleness and error
+// Three methods over opaque strings - TTL, namespacing, staleness and error
 // isolation come from KeyValueCache.
 const driver: KeyValueDriver = {
   get: (key) => memcached.get(key),
@@ -156,16 +178,16 @@ if (address.partial) {
 }
 ```
 
-## Validate CEP against the selected UF with zero network
+## Validate a CEP against the selected state, zero network
 
 ```ts
 import { cepMatchesState, isCepAllocated } from "@eusilvio/cep-lookup/offline";
 
 if (!isCepAllocated(form.cep)) {
-  return showError("Este CEP não existe em nenhuma faixa dos Correios.");
+  return showError("This CEP falls outside every Correios range.");
 }
 if (!cepMatchesState(form.cep, form.uf)) {
-  return showError(`Este CEP não pertence a ${form.uf}.`);
+  return showError(`This CEP does not belong to ${form.uf}.`);
 }
 // Only now spend a network call:
 const address = await lookup.lookup(form.cep);
@@ -196,4 +218,22 @@ import { createGatewayProvider } from "@eusilvio/cep-lookup/providers";
 
 const gateway = createGatewayProvider({ baseUrl: "https://internal.mycompany.com/cep" });
 const lookup = new CepLookup({ providers: [gateway] });
+```
+
+## Instrument every HTTP call
+
+```ts
+const lookup = new CepLookup({
+  providers,
+  fetcher: async (url, signal) => {
+    const started = performance.now();
+    try {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } finally {
+      metrics.timing("cep.http", performance.now() - started);
+    }
+  },
+});
 ```

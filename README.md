@@ -145,7 +145,7 @@ cep.getProviderHealth();
 
 Score weighs success rate (80%) and average latency (20%). An open circuit scores zero and is skipped on the next request.
 
-`avgLatencyMs` is an exponentially weighted moving average (recent samples matter more than old ones), and `p95LatencyMs` is an approximate 95th percentile computed over the last ~50 samples per provider — useful to spot a provider with an occasional slow tail even when its average still looks healthy.
+`avgLatencyMs` is an exponentially weighted moving average (recent samples matter more than old ones), and `p95LatencyMs` is an approximate 95th percentile computed over the last ~50 samples per provider - useful to spot a provider with an occasional slow tail even when its average still looks healthy.
 
 A CEP that genuinely doesn't exist (`CepNotFoundError`) is **not** treated as an infrastructure failure: it's counted in `notFoundErrors`/`failureCount` for observability, but it never increments `consecutiveFailures` or trips the circuit breaker.
 
@@ -208,11 +208,11 @@ Each provider gets its own timeout (`provider.timeout ?? 5000ms`), so a single h
 
 ## Cache: async, stale-if-error, negative caching
 
-`Cache` methods (`get`/`set`/`delete`/`has`/`clear`) may return their value directly or as a `Promise` — `CepLookup` awaits every call, so an async cache works out of the box. `InMemoryCache` itself stays fully synchronous.
+`Cache` methods (`get`/`set`/`delete`/`has`/`clear`) may return their value directly or as a `Promise` - `CepLookup` awaits every call, so an async cache works out of the box. `InMemoryCache` itself stays fully synchronous.
 
 ### Persistent cache adapters
 
-`InMemoryCache` dies with the process (or the page reload). Four ready-made adapters, shipped in the `@eusilvio/cep-lookup/cache` subpath, keep the cache where it belongs — all of them implement `getStale()`, so `staleIfError` works with every one:
+`InMemoryCache` dies with the process (or the page reload). Four ready-made adapters, shipped in the `@eusilvio/cep-lookup/cache` subpath, keep the cache where it belongs - all of them implement `getStale()`, so `staleIfError` works with every one:
 
 | Adapter | Backend | Use it for |
 | --- | --- | --- |
@@ -241,13 +241,13 @@ const cep = new CepLookup({
   cache: new RedisCache({
     client: new Redis(process.env.REDIS_URL!),
     ttl: 7 * 24 * 60 * 60_000,          // logical freshness
-    evictAfter: 30 * 24 * 60 * 60_000,  // physical expiry — leaves room for stale reads
+    evictAfter: 30 * 24 * 60 * 60_000,  // physical expiry - leaves room for stale reads
   }),
   staleIfError: true,
 });
 ```
 
-Shared options: `ttl` (logical freshness), `namespace` (key prefix, default `cep-lookup` — adapters never touch keys outside it), `evictAfter` (physical expiry for stores that have one) and `onError` (a cache failure is reported here and swallowed, never propagated into `lookup()`). Zero dependencies: clients and bindings are injected, matched structurally.
+Shared options: `ttl` (logical freshness), `namespace` (key prefix, default `cep-lookup` - adapters never touch keys outside it), `evictAfter` (physical expiry for stores that have one) and `onError` (a cache failure is reported here and swallowed, never propagated into `lookup()`). Zero dependencies: clients and bindings are injected, matched structurally.
 
 **Custom backend**: implement the 3-method `KeyValueDriver` and `KeyValueCache` handles serialization, namespacing, TTL and staleness for you.
 
@@ -263,7 +263,7 @@ const driver: KeyValueDriver = {
 const cep = new CepLookup({ providers, cache: new KeyValueCache(driver, { ttl: 600_000 }) });
 ```
 
-**Stale-if-error**: when every provider fails with an infrastructure error (not a genuine not-found) and a previously cached — even expired — entry exists, serve it instead of throwing. Requires a cache that implements `getStale()` (`InMemoryCache` does).
+**Stale-if-error**: when every provider fails with an infrastructure error (not a genuine not-found) and a previously cached - even expired - entry exists, serve it instead of throwing. Requires a cache that implements `getStale()` (`InMemoryCache` does).
 
 ```ts
 const cep = new CepLookup({
@@ -273,7 +273,7 @@ const cep = new CepLookup({
 });
 
 cep.on("cache:stale", ({ cep, address }) => {
-  logger.warn(`Serving stale address for ${cep} — all providers are down`);
+  logger.warn(`Serving stale address for ${cep} - all providers are down`);
 });
 ```
 
@@ -283,7 +283,7 @@ cep.on("cache:stale", ({ cep, address }) => {
 const cep = new CepLookup({ providers, cache: new InMemoryCache(), negativeCacheTtl: 60_000 });
 ```
 
-**Request coalescing**: concurrent `lookup()` calls for the same CEP automatically share a single in-flight provider request instead of firing redundant network calls — each caller still gets its own mapped result.
+**Request coalescing**: concurrent `lookup()` calls for the same CEP automatically share a single in-flight provider request instead of firing redundant network calls - each caller still gets its own mapped result.
 
 ```ts
 // Only one network round-trip happens here, even without a cache configured.
@@ -294,7 +294,7 @@ await Promise.all([cep.lookup("01001000"), cep.lookup("01001000"), cep.lookup("0
 
 ## Offline Resilience Layer
 
-The final tier of the fallback ladder. When every provider fails, retries are exhausted and no stale cache entry is usable, `lookup()` can still answer — synthesizing a state-level address from the official Correios CEP allocation map, bundled with the library (~2 KB, zero network):
+The final tier of the fallback ladder. When every provider fails, retries are exhausted and no stale cache entry is usable, `lookup()` can still answer - synthesizing a state-level address from the official Correios CEP allocation map, bundled with the library (~2 KB, zero network):
 
 ```
 providers race → retries → stale cache → offline fallback → error
@@ -317,11 +317,11 @@ await cep.lookup("01310-100");
 cep.on("offline:fallback", ({ cep }) => metrics.increment("cep.offline_fallback"));
 ```
 
-A genuine not-found is **never** masked (`CepNotFoundError` still throws), and the partial address is **never** written to the cache. Check `address.partial` to render a degraded UI — e.g. keep state-based shipping estimates working while the street field falls back to manual input.
+A genuine not-found is **never** masked (`CepNotFoundError` still throws), and the partial address is **never** written to the cache. Check `address.partial` to render a degraded UI - e.g. keep state-based shipping estimates working while the street field falls back to manual input.
 
 ### Zero-network CEP intelligence
 
-The same allocation map powers a standalone, synchronous API — importable on its own (`@eusilvio/cep-lookup/offline`, ~2 KB) for instant form validation with no engine and no network:
+The same allocation map powers a standalone, synchronous API - importable on its own (`@eusilvio/cep-lookup/offline`, ~2 KB) for instant form validation with no engine and no network:
 
 ```ts
 import { resolveCepOffline, cepMatchesState, isCepAllocated } from "@eusilvio/cep-lookup/offline";
@@ -334,13 +334,13 @@ cepMatchesState("01310-100", "RJ"); // false → flag the typo before any networ
 isCepAllocated("00500-000");        // false → outside every allocated range, skip the doomed lookup
 ```
 
-`cepMatchesState` catches the classic checkout typo — CEP from one state, UF dropdown on another — in 0ms, and `isCepAllocated` short-circuits lookups no provider could ever resolve.
+`cepMatchesState` catches the classic checkout typo - CEP from one state, UF dropdown on another - in 0ms, and `isCepAllocated` short-circuits lookups no provider could ever resolve.
 
 ---
 
 ## Cancellation
 
-`lookup()` accepts an options object with `signal` and/or `mapper` — the legacy `lookup(cep, mapper)` shorthand keeps working unchanged.
+`lookup()` accepts an options object with `signal` and/or `mapper` - the legacy `lookup(cep, mapper)` shorthand keeps working unchanged.
 
 ```ts
 const controller = new AbortController();
@@ -358,7 +358,7 @@ Find candidate CEPs from a state, city and street name (ViaCEP supports this nat
 
 ```ts
 const results = await cep.searchByAddress("SP", "São Paulo", "Praça da Sé");
-// Address[] — city and street must each be at least 3 characters (ViaCEP requirement)
+// Address[] - city and street must each be at least 3 characters (ViaCEP requirement)
 ```
 
 ---
@@ -465,7 +465,7 @@ const cep = new CepLookup({ providers: [myProvider, viaCepProvider] });
 
 ### Self-hosted gateway provider
 
-If you run your own CEP gateway/proxy (see `docs/PRD-API-GATEWAY.md`) that already returns a normalized `Address`, use the built-in factory instead of writing one by hand:
+If you run your own CEP gateway/proxy that already returns a normalized `Address`, use the built-in factory instead of writing one by hand:
 
 ```ts
 import { createGatewayProvider } from "@eusilvio/cep-lookup/providers";
@@ -474,7 +474,7 @@ const gatewayProvider = createGatewayProvider({ baseUrl: "https://internal.mycom
 // buildUrl -> https://internal.mycompany.com/cep/v1/cep/{cep}
 ```
 
-`buildUrl` only produces a URL, so an `apiKey` isn't sent automatically — inject it via a custom `fetcher` that adds an `x-api-key` header:
+`buildUrl` only produces a URL, so an `apiKey` isn't sent automatically - inject it via a custom `fetcher` that adds an `x-api-key` header:
 
 ```ts
 const cep = new CepLookup({
@@ -548,9 +548,13 @@ const cep = new CepLookup({
 
 ## Docs
 
-- [Best Practices](docs/BEST_PRACTICES.md)
-- [Migration Guide](docs/MIGRATION.md)
-- [Cookbook](docs/COOKBOOK.md)
+**Full documentation: [https://eusilvio.github.io/cep-lookup](https://eusilvio.github.io/cep-lookup)** - available in English and Portuguese.
+
+- [Best Practices](https://eusilvio.github.io/cep-lookup/en/guide/best-practices)
+- [Migration Guide](https://eusilvio.github.io/cep-lookup/en/guide/migration)
+- [Cookbook](https://eusilvio.github.io/cep-lookup/en/guide/cookbook)
+- [API Reference](https://eusilvio.github.io/cep-lookup/en/api/cep-lookup)
+- [Documentação em português](https://eusilvio.github.io/cep-lookup/)
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
 

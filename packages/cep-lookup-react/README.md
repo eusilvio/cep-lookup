@@ -102,5 +102,5 @@ Accepts `CepLookupOptions` as props (`providers`, `cache`, `rateLimit`, `retries
 
 ## Production docs
 
-- [Best Practices](../../docs/BEST_PRACTICES.md)
-- [Cookbook](../../docs/COOKBOOK.md)
+- [Best Practices](https://eusilvio.github.io/cep-lookup/en/guide/best-practices)
+- [Cookbook](https://eusilvio.github.io/cep-lookup/en/guide/cookbook)

@@ -1,0 +1,57 @@
+:root {
+  --vp-c-brand-1: #0f9d68;
+  --vp-c-brand-2: #10b981;
+  --vp-c-brand-3: #34d399;
+  --vp-c-brand-soft: rgba(16, 185, 129, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #10b981 30%, #0ea5e9);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #10b981 45%, #0ea5e9 55%);
+  --vp-home-hero-image-filter: blur(52px);
+}
+
+.dark {
+  --vp-c-brand-1: #34d399;
+  --vp-c-brand-2: #10b981;
+  --vp-c-brand-3: #0f9d68;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --vp-home-hero-image-filter: blur(60px);
+  }
+}
+
+/* Tabelas de comparação e de opções ficam legíveis em telas estreitas. */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc td code {
+  white-space: nowrap;
+}
+
+/* O mapa animado ocupa o fundo inteiro do hero; o conteúdo fica por cima dele. */
+.VPHome {
+  position: relative;
+  overflow: hidden;
+}
+
+.VPHome .VPHero,
+.VPHome .VPFeatures {
+  position: relative;
+  z-index: 1;
+}
+
+/* Puxa os cards de features para mais perto do hero. */
+@media (min-width: 960px) {
+  .VPHome .VPHero {
+    padding-top: 56px;
+    padding-bottom: 16px;
+  }
+
+  .VPHome .VPFeatures {
+    padding-top: 8px;
+  }
+}

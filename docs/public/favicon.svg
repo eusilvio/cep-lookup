@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="cep-lookup">
+  <defs>
+    <linearGradient id="fv-grad" x1="12" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34d399" />
+      <stop offset="1" stop-color="#0ea5e9" />
+    </linearGradient>
+    <mask id="fv-hole">
+      <rect width="48" height="48" fill="#fff" />
+      <circle cx="28" cy="19" r="5.4" fill="#000" />
+    </mask>
+  </defs>
+
+  <path
+    d="M14.14 27A16 16 0 0 1 14.14 11"
+    fill="none"
+    stroke="url(#fv-grad)"
+    stroke-width="4.4"
+    stroke-linecap="round"
+    opacity=".6"
+  />
+
+  <path
+    mask="url(#fv-hole)"
+    fill="url(#fv-grad)"
+    d="M28 5C20.27 5 14 11.27 14 19c0 9.1 14 24 14 24s14-14.9 14-24c0-7.73-6.27-14-14-14z"
+  />
+</svg>
