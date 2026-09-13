@@ -102,6 +102,7 @@ export default defineConfig({
               items: [
                 { text: "Boas práticas", link: "/guide/best-practices" },
                 { text: "Exemplos", link: "/guide/cookbook" },
+                { text: "Quem usa", link: "/guide/who-uses" },
                 { text: "Migração", link: "/guide/migration" },
               ],
             },
@@ -197,6 +198,7 @@ export default defineConfig({
               items: [
                 { text: "Best practices", link: "/en/guide/best-practices" },
                 { text: "Cookbook", link: "/en/guide/cookbook" },
+                { text: "Who uses it", link: "/en/guide/who-uses" },
                 { text: "Migration", link: "/en/guide/migration" },
               ],
             },
