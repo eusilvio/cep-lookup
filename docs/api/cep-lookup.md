@@ -74,16 +74,24 @@ results.forEach(({ cep, data, provider, error }) => {
 ## searchByAddress
 
 ```ts
-searchByAddress(state: string, city: string, street: string): Promise<Address[]>
+searchByAddress(
+  state: string,
+  city: string,
+  street: string,
+  options?: SearchByAddressOptions, // { signal? }
+): Promise<Address[]>
 ```
 
 Busca reversa: encontra CEPs candidatos a partir de UF, cidade e logradouro. Requer um provedor que implemente `buildSearchUrl` e `transformSearch` - o `viaCepProvider` implementa.
 
 ```ts
 const candidatos = await cep.searchByAddress("SP", "São Paulo", "Praça da Sé");
+
+// com cancelamento
+await cep.searchByAddress("SP", "São Paulo", "Praça da Sé", { signal: controller.signal });
 ```
 
-Cidade e rua precisam ter no mínimo 3 caracteres (exigência do ViaCEP).
+Cidade e rua precisam ter no mínimo 3 caracteres (exigência do ViaCEP). O ViaCEP casa palavras literais e devolve no máximo 50 resultados: "Dr Arnaldo" não encontra nada, "Doutor Arnaldo" encontra. Para conferir um endereço inteiro contra o CEP, use [`verifyAddress`](/api/verify).
 
 ## warmup
 
@@ -154,4 +162,5 @@ Um listener que lança não interrompe a busca: o erro é engolido e reportado a
 - [Tipos](/api/types)
 - [Cache](/api/cache)
 - [Offline](/api/offline)
+- [Verificação](/api/verify)
 - [Erros](/api/errors)

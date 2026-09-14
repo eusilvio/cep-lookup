@@ -1,6 +1,7 @@
 import { Bench } from 'tinybench';
 import { CepLookup, InMemoryCache } from '../packages/cep-lookup/src';
 import { viaCepProvider } from '../packages/cep-lookup/src/providers/viacep';
+import { compareAddress } from '../packages/cep-lookup/src/verify';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
@@ -38,6 +39,9 @@ export async function runBench(): Promise<BenchmarkSnapshot> {
   // Warm up cache
   cache.set(validCep, addressData);
 
+  const typedAddress = { state: 'sp', city: 'Sao Paulo', neighborhood: 'Se', street: 'Pça. da Sé', number: '85' };
+  const referenceAddress = { ...addressData, complement: 'lado ímpar' };
+
   bench
     .add('validateCep (regex)', () => {
       const cepRegex = /^(\d{8}|\d{5}-\d{3})$/;
@@ -57,6 +61,9 @@ export async function runBench(): Promise<BenchmarkSnapshot> {
         duration: 10,
         address: addressData
       });
+    })
+    .add('compareAddress (5 fields)', () => {
+      compareAddress(typedAddress, referenceAddress);
     });
 
   await bench.run();

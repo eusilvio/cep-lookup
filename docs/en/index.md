@@ -84,6 +84,7 @@ If ViaCEP is unavailable, BrasilAPI takes over. If that trips too, APICep respon
 | Retry with exponential backoff | ❌ | ❌ | ✅ |
 | Rate limiting | ❌ | ❌ | ✅ |
 | Offline fallback (zero-network) | ❌ | ❌ | ✅ |
+| Address verification with CEP correction | ❌ | ❌ | ✅ |
 | Custom providers | ❌ | ❌ | ✅ |
 | React / Vue integration | ❌ | ❌ | ✅ |
 

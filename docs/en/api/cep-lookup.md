@@ -74,16 +74,24 @@ results.forEach(({ cep, data, provider, error }) => {
 ## searchByAddress
 
 ```ts
-searchByAddress(state: string, city: string, street: string): Promise<Address[]>
+searchByAddress(
+  state: string,
+  city: string,
+  street: string,
+  options?: SearchByAddressOptions, // { signal? }
+): Promise<Address[]>
 ```
 
 Reverse search: finds candidate CEPs from state, city and street. Requires a provider implementing `buildSearchUrl` and `transformSearch` - `viaCepProvider` does.
 
 ```ts
 const candidates = await cep.searchByAddress("SP", "São Paulo", "Praça da Sé");
+
+// with cancellation
+await cep.searchByAddress("SP", "São Paulo", "Praça da Sé", { signal: controller.signal });
 ```
 
-City and street must each be at least 3 characters (ViaCEP requirement).
+City and street must each be at least 3 characters (ViaCEP requirement). ViaCEP matches literal words and returns at most 50 results: "Dr Arnaldo" finds nothing, "Doutor Arnaldo" does. To check a whole address against its CEP, use [`verifyAddress`](/en/api/verify).
 
 ## warmup
 
@@ -154,4 +162,5 @@ A listener that throws doesn't interrupt the lookup: the error is swallowed and 
 - [Types](/en/api/types)
 - [Cache](/en/api/cache)
 - [Offline](/en/api/offline)
+- [Verify](/en/api/verify)
 - [Errors](/en/api/errors)

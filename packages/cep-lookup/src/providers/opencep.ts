@@ -28,6 +28,7 @@ export const openCepProvider: Provider = {
       street: response.logradouro || "",
       service: "OpenCEP",
       ibge: response.ibge || undefined,
+      complement: response.complemento || undefined,
     };
   },
 };

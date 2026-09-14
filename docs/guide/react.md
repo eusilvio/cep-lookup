@@ -139,3 +139,38 @@ useEffect(() => {
   return () => controller.abort();
 }, [cep, instance]);
 ```
+
+## Verificação de endereço
+
+Passe a instância do provider para `verifyAddress` - ela herda cache, circuit breaker e retries da configuração do `CepProvider`. Requer `@eusilvio/cep-lookup` `2.10.0` ou superior.
+
+```tsx
+import { useState } from "react";
+import { useCepLookupInstance } from "@eusilvio/cep-lookup-react";
+import { verifyAddress, type AddressVerification } from "@eusilvio/cep-lookup/verify";
+
+function ConfirmAddress({ form, onConfirm }: { form: AddressForm; onConfirm: (address: Address) => void }) {
+  const { instance } = useCepLookupInstance();
+  const [result, setResult] = useState<AddressVerification | null>(null);
+
+  async function handleContinue() {
+    const verification = await verifyAddress(instance, form);
+    if (verification.status === "confirmed") return onConfirm(verification.suggestion!);
+    setResult(verification);
+  }
+
+  return (
+    <>
+      {result?.fields.number?.match === "mismatch" && (
+        <p>O número {form.number} não pertence ao CEP {form.cep} ({result.fields.number.expected}).</p>
+      )}
+      {result?.suggestion && result.suggestion.cep !== result.cep && (
+        <button onClick={() => onConfirm(result.suggestion!)}>Usar o CEP {result.suggestion.cep}</button>
+      )}
+      <button onClick={handleContinue}>Continuar</button>
+    </>
+  );
+}
+```
+
+Veja [Verificação de endereço](/guide/verification) para o significado de cada status.

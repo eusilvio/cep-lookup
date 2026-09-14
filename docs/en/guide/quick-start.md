@@ -43,7 +43,7 @@ Any formatting works: `01001-000`, `01001000` or `01 001 000`. Everything that i
 
 ## Import subpaths
 
-The package exposes four entry points, so you only pay for what you use:
+The package exposes five entry points, so you only pay for what you use:
 
 | Import | Contains |
 | --- | --- |
@@ -51,6 +51,7 @@ The package exposes four entry points, so you only pay for what you use:
 | `@eusilvio/cep-lookup/providers` | Built-in providers and `createGatewayProvider` |
 | `@eusilvio/cep-lookup/cache` | Persistent adapters and `KeyValueCache` |
 | `@eusilvio/cep-lookup/offline` | Zero-network CEP intelligence (~2 KB) |
+| `@eusilvio/cep-lookup/verify` | Address verification and CEP correction |
 
 ## Production config
 

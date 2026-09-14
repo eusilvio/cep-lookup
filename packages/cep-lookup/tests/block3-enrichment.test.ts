@@ -132,4 +132,14 @@ describe("Block 3: reverse address search (searchByAddress)", () => {
     const results = await lookup.searchByAddress("SP", "São Paulo", "Xyzxyzxyz");
     expect(results).toEqual([]);
   });
+
+  it("should pass the abort signal through to the fetcher", async () => {
+    const fetcher = jest.fn().mockResolvedValue([]);
+    const lookup = new CepLookup({ providers: [viaCepProvider], fetcher });
+    const controller = new AbortController();
+
+    await lookup.searchByAddress("SP", "São Paulo", "Praça da Sé", { signal: controller.signal });
+
+    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/json/"), controller.signal);
+  });
 });

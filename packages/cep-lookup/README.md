@@ -24,6 +24,7 @@ npm install @eusilvio/cep-lookup
 - Event-based observability.
 - Offline fallback: state-level answers with zero network, from the official Correios CEP allocation map.
 - Zero-network CEP intelligence (`@eusilvio/cep-lookup/offline`): CEP↔state validation, allocation checks, state metadata.
+- Address verification (`@eusilvio/cep-lookup/verify`): the typed address checked against its CEP, the house number against the Correios numbering range, and the right CEP found when the typed one is wrong.
 
 ## Basic Usage
 
@@ -138,6 +139,7 @@ const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
 
 - `lookup(cep, mapper?)`
 - `lookupCeps(ceps, concurrency?)`
+- `searchByAddress(state, city, street, { signal }?)`
 - `warmup()`
 - `getProviderHealth()`
 - `getProviderMetrics()`
@@ -145,10 +147,32 @@ const results = await lookup.lookupCeps(["01001-000", "99999-999"], 2);
 
 ### `@eusilvio/cep-lookup/offline` (sync, zero network)
 
-- `resolveCepOffline(cep)` — state, state name, region, capital, DDD and IBGE state code.
-- `stateFromCep(cep)` — UF that owns the CEP, or `null`.
-- `isCepAllocated(cep)` — whether any provider could possibly resolve it.
-- `cepMatchesState(cep, uf)` — 0ms cross-field form validation.
+- `resolveCepOffline(cep)` - state, state name, region, capital, DDD and IBGE state code.
+- `stateFromCep(cep)` - UF that owns the CEP, or `null`.
+- `isCepAllocated(cep)` - whether any provider could possibly resolve it.
+- `cepMatchesState(cep, uf)` - 0ms cross-field form validation.
+
+### `@eusilvio/cep-lookup/verify`
+
+- `verifyAddress(lookup, address, options?)` - status, score, per-field outcome and a suggestion; searches for the right CEP when the typed one conflicts, does not exist or is malformed.
+- `compareAddress(address, reference, options?)` - the same comparison against an address you already hold, synchronous and zero network.
+- `normalizeAddressText(text)` - canonical form: `"Av. Brig. Faria Lima"` becomes `"avenida brigadeiro faria lima"`.
+- `parseNumberRange(complement)` / `isNumberInRange(number, range)` - Correios numbering ranges such as `"de 612 a 1510 - lado par"`.
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+const result = await verifyAddress(lookup, {
+  cep: "01310-100",
+  street: "Av. Paulista",
+  number: "1578",
+  city: "Sao Paulo",
+  state: "SP",
+});
+
+result.status;          // "conflict" - 1578 is outside "de 612 a 1510 - lado par"
+result.suggestion?.cep; // "01310200"
+```
 
 ## Compatibility and support
 

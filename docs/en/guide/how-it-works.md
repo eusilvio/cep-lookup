@@ -90,7 +90,7 @@ interface Address {
   service: string;      // which provider answered
   ibge?: string;
   ddd?: string;
-  complement?: string;  // ViaCEP
+  complement?: string;  // ViaCEP and OpenCEP
   location?: { latitude: number; longitude: number }; // BrasilAPI v2
   partial?: boolean;    // true only on the offline fallback
 }

@@ -60,6 +60,7 @@ If ViaCEP is unavailable, BrasilAPI takes over. If that trips too, APICep respon
 | Retry with exponential backoff | ❌ | ❌ | ✅ |
 | Rate limiting | ❌ | ❌ | ✅ |
 | Offline fallback (zero-network) | ❌ | ❌ | ✅ |
+| Address verification with CEP correction | ❌ | ❌ | ✅ |
 | Custom providers | ❌ | ❌ | ✅ |
 | React / Vue integration | ❌ | ❌ | ✅ |
 
@@ -105,6 +106,7 @@ Internal path performance (no network, measured with [tinybench](https://github.
 | Cache lookup (InMemoryCache) | 48 ns | 21M ops/s |
 | Full lookup with cache hit | 605 ns | 2.6M ops/s |
 | EventEmitter dispatch | 63 ns | 17M ops/s |
+| Address comparison, 5 fields (`compareAddress`) | 24 µs | 56K ops/s |
 
 A cache hit resolves in under a microsecond. The overhead of the resilience layer is negligible on the hot path.
 
@@ -338,6 +340,41 @@ isCepAllocated("00500-000");        // false → outside every allocated range, 
 ```
 
 `cepMatchesState` catches the classic checkout typo - CEP from one state, UF dropdown on another - in 0ms, and `isCepAllocated` short-circuits lookups no provider could ever resolve.
+
+---
+
+## Address Verification
+
+A lookup tells you where a CEP is. It doesn't tell you whether the address the user typed matches it. `@eusilvio/cep-lookup/verify` does - field by field, with Brazilian address normalization, the house number checked against the Correios numbering range, and a search for the right CEP when the typed one is wrong:
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+const result = await verifyAddress(cep, {
+  cep: "01310-100",
+  street: "Av. Paulista",
+  number: "1578",
+  city: "Sao Paulo",
+  state: "SP",
+});
+
+result.status;              // "conflict"
+result.fields.street?.match; // "equivalent" - "Av. Paulista" is "Avenida Paulista"
+result.fields.number;       // { match: "mismatch", expected: "de 612 a 1510 - lado par", ... }
+result.suggestion?.cep;     // "01310200" - the CEP that actually serves Avenida Paulista, 1578
+```
+
+| Status | Meaning |
+|---|---|
+| `confirmed` | Everything that could be checked matches |
+| `plausible` | Nothing contradicts the CEP, but something looks like a typo - offer `suggestion` |
+| `conflict` | A field contradicts the CEP - `suggestion` carries the right CEP when the search found it |
+| `unverifiable` | Providers down, the offline fallback answered: only the state could be checked |
+| `not_found` / `invalid` | The CEP doesn't exist or is malformed - `suggestion` may still carry the right one |
+
+Normalization knows how Brazilians write addresses: `Av.` / `R.` / `Pça.`, omitted street types and titles (`Faria Lima` for `Avenida Brigadeiro Faria Lima`), numbers spelled out or in roman numerals (`XV` / `Quinze` / `15 de Novembro`), accents, and state names for UFs. A near miss never passes for another state: `Mato Grosso` is not `MS`.
+
+Bad data never throws - it comes back as a status. The happy path costs a single lookup; reverse searches run only when they can help and never hold verification past `searchTimeout`. Already holding the reference address? `compareAddress(input, reference)` runs the same comparison synchronously, with zero network.
 
 ---
 

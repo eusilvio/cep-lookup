@@ -127,6 +127,15 @@ export interface LookupOptions<T = Address> {
 }
 
 /**
+ * @interface SearchByAddressOptions
+ * @description Options accepted by the last argument of `searchByAddress()`.
+ */
+export interface SearchByAddressOptions {
+  /** Aborts the in-flight search request. */
+  signal?: AbortSignal;
+}
+
+/**
  * @interface BulkCepResult
  * @description Represents the result for a single CEP in a bulk lookup operation.
  */

@@ -84,6 +84,7 @@ Se o ViaCEP cair, a BrasilAPI assume. Se ela também abrir o circuito, o APICep 
 | Retry com backoff exponencial | ❌ | ❌ | ✅ |
 | Rate limiting | ❌ | ❌ | ✅ |
 | Fallback offline (zero rede) | ❌ | ❌ | ✅ |
+| Verificação de endereço com correção de CEP | ❌ | ❌ | ✅ |
 | Provedores customizados | ❌ | ❌ | ✅ |
 | Integração React / Vue | ❌ | ❌ | ✅ |
 

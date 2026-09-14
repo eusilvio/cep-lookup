@@ -43,7 +43,7 @@ O CEP aceita qualquer formatação: `01001-000`, `01001000` ou `01 001 000`. Tud
 
 ## Subpaths de importação
 
-O pacote expõe quatro entradas, então o bundle carrega só o que você importa:
+O pacote expõe cinco entradas, então o bundle carrega só o que você importa:
 
 | Import | Contém |
 | --- | --- |
@@ -51,6 +51,7 @@ O pacote expõe quatro entradas, então o bundle carrega só o que você importa
 | `@eusilvio/cep-lookup/providers` | Provedores prontos e `createGatewayProvider` |
 | `@eusilvio/cep-lookup/cache` | Adaptadores persistentes e `KeyValueCache` |
 | `@eusilvio/cep-lookup/offline` | Inteligência de CEP sem rede (~2 KB) |
+| `@eusilvio/cep-lookup/verify` | Verificação de endereço e correção de CEP |
 
 ## Configuração de produção
 

@@ -14,7 +14,7 @@ interface Address {
   service: string;        // provedor que respondeu; "offline" no fallback
   ibge?: string;
   ddd?: string;
-  complement?: string;    // ViaCEP
+  complement?: string;    // ViaCEP e OpenCEP; faixa de numeração dos Correios
   location?: { latitude: number; longitude: number }; // BrasilAPI v2
   partial?: boolean;      // true apenas em endereços sintetizados offline
 }
@@ -72,6 +72,16 @@ interface LookupOptions<T = Address> {
   mapper?: (address: Address) => T;
 }
 ```
+
+## SearchByAddressOptions
+
+```ts
+interface SearchByAddressOptions {
+  signal?: AbortSignal;
+}
+```
+
+Último argumento de `searchByAddress()`.
 
 ## BulkCepResult
 

@@ -193,6 +193,74 @@ if (!cepMatchesState(form.cep, form.uf)) {
 const address = await lookup.lookup(form.cep);
 ```
 
+## Conferir o endereço inteiro antes de salvar
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+const result = await verifyAddress(lookup, form); // { cep, state, city, neighborhood, street, number }
+
+switch (result.status) {
+  case "confirmed":
+    return saveAddress({ ...result.suggestion!, number: form.number }); // grafia oficial
+  case "plausible":
+    return askToConfirm(result.suggestion!); // "Você quis dizer Avenida Paulista?"
+  case "unverifiable":
+    return saveAddress(form); // provedores fora: siga com o que foi digitado
+  default: // conflict, not_found, invalid
+    if (result.suggestion) return offerCorrection(result.suggestion); // o CEP certo
+    if (result.candidates) return pickOne(result.candidates);
+    return highlight(Object.entries(result.fields).filter(([, field]) => field.match === "mismatch"));
+}
+```
+
+## Endpoint de verificação de endereço
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+app.post("/addresses/verify", async (req, res) => {
+  try {
+    res.json(await verifyAddress(lookup, req.body, { signal: AbortSignal.timeout(8_000) }));
+  } catch (error: any) {
+    const timedOut = error.name === "TimeoutError" || error.name === "AbortError";
+    res.status(timedOut ? 504 : 502).json({ code: error.code ?? "UNKNOWN", message: error.message });
+  }
+});
+```
+
+Dado ruim volta com status `200` e o veredito no corpo; só falha de infraestrutura vira `5xx`.
+
+## Auditar a base de endereços
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+async function auditAddresses(customers: Customer[], concurrency = 4) {
+  const issues: Array<{ id: string; status: string; suggestion?: Address }> = [];
+  let next = 0;
+
+  const worker = async () => {
+    while (next < customers.length) {
+      const { id, address } = customers[next++];
+      try {
+        const result = await verifyAddress(lookup, address, { searchTimeout: 3_000 });
+        if (result.status !== "confirmed") {
+          issues.push({ id, status: result.status, suggestion: result.suggestion });
+        }
+      } catch {
+        issues.push({ id, status: "error" }); // infraestrutura: tente de novo depois
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return issues;
+}
+```
+
+As buscas reversas vão direto ao ViaCEP e não passam pelo `rateLimit` do motor: controle o ritmo pela concorrência.
+
 ## Cancelar busca em voo a partir de um input React
 
 ```ts

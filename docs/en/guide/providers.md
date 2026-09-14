@@ -19,7 +19,7 @@ import {
 | `viaCepProvider` | `ViaCEP` | The only one with reverse search (`searchByAddress`); fills `complement` |
 | `brasilApiProvider` | `BrasilAPI` | v2 endpoint; fills `location` (latitude/longitude) |
 | `apicepProvider` | `ApiCEP` | Solid third in line |
-| `openCepProvider` | `OpenCEP` | Lightweight alternative |
+| `openCepProvider` | `OpenCEP` | Lightweight alternative; fills `complement` |
 | `createGatewayProvider` | `Gateway` | Factory for your own gateway that already returns `Address` |
 
 Use **at least two** in production. A single provider turns any of its instability into your downtime.

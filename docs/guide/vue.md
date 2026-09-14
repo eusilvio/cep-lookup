@@ -119,3 +119,33 @@ onMounted(() => {
   warmup(); // mede a latência real e reordena os provedores
 });
 ```
+
+## Verificação de endereço
+
+Passe a instância do plugin para `verifyAddress` - ela herda a configuração de resiliência. Requer `@eusilvio/cep-lookup` `2.10.0` ou superior.
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { useCepLookupInstance } from "@eusilvio/cep-lookup-vue";
+import { verifyAddress, type AddressVerification } from "@eusilvio/cep-lookup/verify";
+
+const props = defineProps<{ form: { cep: string; street: string; number: string; city: string; state: string } }>();
+
+const cepLookup = useCepLookupInstance();
+const result = ref<AddressVerification | null>(null);
+
+async function verify() {
+  result.value = await verifyAddress(cepLookup, props.form);
+}
+</script>
+
+<template>
+  <button @click="verify">Conferir endereço</button>
+  <p v-if="result?.suggestion && result.suggestion.cep !== result.cep">
+    O CEP deste endereço é {{ result.suggestion.cep }}.
+  </p>
+</template>
+```
+
+Veja [Verificação de endereço](/guide/verification) para o significado de cada status.

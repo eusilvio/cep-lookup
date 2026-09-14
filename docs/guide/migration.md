@@ -3,8 +3,25 @@
 Todas as versões desta série são retrocompatíveis: nada abaixo exige mudança de código. Cada adição é opt-in.
 
 ::: info Versões
-Os adaptadores de cache persistente descritos abaixo exigem `2.9.0` ou superior.
+A verificação de endereço descrita abaixo exige `2.10.0` ou superior; os adaptadores de cache persistente, `2.9.0`.
 :::
+
+## 2.9.x → 2.10.0
+
+### Adicionado
+
+- **Verificação de endereço** no subpath `@eusilvio/cep-lookup/verify`: `verifyAddress(cep, endereco)` confere UF, cidade, bairro, logradouro e número contra o CEP e devolve status (`confirmed`, `plausible`, `conflict`, `unverifiable`, `not_found`, `invalid`), score, resultado por campo e uma sugestão pronta para salvar. Dado ruim nunca lança erro.
+- **Correção de CEP**: quando o CEP conflita com o endereço, não existe ou está malformado, uma busca reversa encontra o CEP que atende aquele logradouro e número - ou lista `candidates` quando mais de um serve.
+- **Número contra a faixa dos Correios**: `de 612 a 1510 - lado par`, `até 894/0895`, CEPs de grande usuário.
+- **Peças sem rede**: `compareAddress`, `normalizeAddressText`, `parseNumberRange` e `isNumberInRange`.
+- **`searchByAddress(uf, cidade, rua, { signal })`** aceita `AbortSignal`.
+- **`openCepProvider`** passa a preencher `Address.complement`.
+
+O entry point principal não cresceu: a verificação só existe no subpath `/verify`. Os tipos também são exportados do entry principal.
+
+```bash
+npm i @eusilvio/cep-lookup@^2.10.0
+```
 
 ## 2.8.x → 2.9.0
 

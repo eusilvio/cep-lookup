@@ -34,6 +34,7 @@ Cada degrau é opcional e ligado por configuração. Sem nada configurado, você
 - **Backends de alto volume**: cache compartilhado no Redis evita repetir o mesmo CEP em todo processo.
 - **Edge/Workers**: cache em KV e bundle pequeno, sem dependências.
 - **Jobs em lote**: `lookupCeps()` com concorrência controlada e rate limit.
+- **Qualidade de cadastro**: `verifyAddress()` confere o endereço digitado contra o CEP - número incluído - e encontra o CEP certo quando o digitado está errado.
 
 ## Quando não usar
 

@@ -119,3 +119,33 @@ onMounted(() => {
   warmup(); // measures real latency and reorders providers
 });
 ```
+
+## Address verification
+
+Hand the plugin's instance to `verifyAddress` - it inherits the resilience configuration. Requires `@eusilvio/cep-lookup` `2.10.0` or newer.
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { useCepLookupInstance } from "@eusilvio/cep-lookup-vue";
+import { verifyAddress, type AddressVerification } from "@eusilvio/cep-lookup/verify";
+
+const props = defineProps<{ form: { cep: string; street: string; number: string; city: string; state: string } }>();
+
+const cepLookup = useCepLookupInstance();
+const result = ref<AddressVerification | null>(null);
+
+async function verify() {
+  result.value = await verifyAddress(cepLookup, props.form);
+}
+</script>
+
+<template>
+  <button @click="verify">Check address</button>
+  <p v-if="result?.suggestion && result.suggestion.cep !== result.cep">
+    The CEP for this address is {{ result.suggestion.cep }}.
+  </p>
+</template>
+```
+
+See [Address verification](/en/guide/verification) for what each status means.

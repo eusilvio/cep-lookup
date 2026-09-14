@@ -1,4 +1,4 @@
-import { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise } from "./types";
+import { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, SearchByAddressOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise } from "./types";
 import { Cache, StaleCacheEntry } from "./cache/types";
 import { InMemoryCache, InMemoryCacheOptions } from "./cache/in-memory";
 import { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError, normalizeProviderError } from "./errors";
@@ -6,11 +6,13 @@ import { dddByState } from "./data/ddd-by-state";
 import { validateCep } from "./validate";
 import { resolveCepOffline, toPartialAddress } from "./offline";
 
-export type { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions, StaleCacheEntry, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise };
+export type { Address, Fetcher, Provider, CepLookupOptions, LookupOptions, SearchByAddressOptions, BulkCepResult, RateLimitOptions, EventName, EventListener, EventMap, Cache, InMemoryCacheOptions, StaleCacheEntry, ProviderHealth, ProviderMetrics, CircuitBreakerOptions, MaybePromise };
 export { InMemoryCache };
 export { CepValidationError, RateLimitError, ProviderTimeoutError, CepNotFoundError, AllProvidersFailedError, ProviderUnavailableError };
 export { resolveCepOffline, stateFromCep, isCepAllocated, cepMatchesState, toPartialAddress } from "./offline";
 export type { OfflineCepInfo, Region, StateInfo } from "./offline";
+// Types only: the verification code itself ships in the `/verify` subpath.
+export type { AddressInput, AddressResolver, AddressVerification, CompareOptions, FieldMatch, FieldVerification, NumberRange, VerifiableField, VerificationStatus, VerifyOptions } from "./verify";
 
 /** Internal marker stored in the cache to represent a confirmed "not found" CEP (negative cache). */
 interface NegativeCacheEntry {
@@ -319,7 +321,7 @@ export class CepLookup {
     state.requests += 1;
     state.failureCount += 1;
     // A "not found" is a valid, successful response from the provider's infrastructure
-    // point of view — it must not be treated as an infra failure by the circuit breaker.
+    // point of view -it must not be treated as an infra failure by the circuit breaker.
     const isNotFound = error instanceof CepNotFoundError;
     if (error instanceof ProviderTimeoutError) {
       state.timeoutErrors += 1;
@@ -487,7 +489,7 @@ export class CepLookup {
       }
     };
     // Attach a settle handler that never rethrows, so this never surfaces as an
-    // unhandled rejection — callers observe the original `promise` directly.
+    // unhandled rejection -callers observe the original `promise` directly.
     promise.then(release, release);
     return promise;
   }
@@ -691,7 +693,7 @@ export class CepLookup {
     } catch (aggregateError) {
       const errors = (aggregateError as AggregateError).errors || [aggregateError];
       // `secondaryPromise` rejects with its own nested AggregateError (from the inner
-      // Promise.any over `otherProviders`), so flatten before wrapping — otherwise
+      // Promise.any over `otherProviders`), so flatten before wrapping -otherwise
       // downstream checks like "every error is CepNotFoundError" would see an opaque
       // AggregateError instead of the individual provider errors.
       throw new AllProvidersFailedError(flattenAggregateErrors(errors));
@@ -709,9 +711,10 @@ export class CepLookup {
    * @param {string} state - Two-letter Brazilian state abbreviation (UF).
    * @param {string} city - City name, minimum 3 characters.
    * @param {string} street - Street name, minimum 3 characters.
+   * @param {SearchByAddressOptions} [options] - `signal` aborts the in-flight request.
    * @returns {Promise<Address[]>} Matching addresses.
    */
-  public async searchByAddress(state: string, city: string, street: string): Promise<Address[]> {
+  public async searchByAddress(state: string, city: string, street: string, options: SearchByAddressOptions = {}): Promise<Address[]> {
     const uf = (state || "").trim().toUpperCase();
     const cityTrimmed = (city || "").trim();
     const streetTrimmed = (street || "").trim();
@@ -729,7 +732,7 @@ export class CepLookup {
     }
 
     const url = provider.buildSearchUrl(uf, cityTrimmed, streetTrimmed);
-    const response = await this.fetcher(url);
+    const response = await this.fetcher(url, options.signal);
     const results = provider.transformSearch(response);
     return results.map((address) => enrichAddress(sanitizeAddress(address)));
   }

@@ -34,6 +34,7 @@ Every rung is optional and turned on by configuration. With nothing configured y
 - **High-volume backends**: a shared Redis cache stops every process from re-resolving the same CEP.
 - **Edge/Workers**: KV-backed cache, small bundle, zero dependencies.
 - **Batch jobs**: `lookupCeps()` with bounded concurrency and rate limiting.
+- **Address quality**: `verifyAddress()` checks the typed address against its CEP - house number included - and finds the right CEP when the typed one is wrong.
 
 ## When not to use it
 

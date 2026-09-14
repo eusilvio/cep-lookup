@@ -193,6 +193,74 @@ if (!cepMatchesState(form.cep, form.uf)) {
 const address = await lookup.lookup(form.cep);
 ```
 
+## Check the whole address before saving it
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+const result = await verifyAddress(lookup, form); // { cep, state, city, neighborhood, street, number }
+
+switch (result.status) {
+  case "confirmed":
+    return saveAddress({ ...result.suggestion!, number: form.number }); // official spelling
+  case "plausible":
+    return askToConfirm(result.suggestion!); // "Did you mean Avenida Paulista?"
+  case "unverifiable":
+    return saveAddress(form); // providers down: carry on with what was typed
+  default: // conflict, not_found, invalid
+    if (result.suggestion) return offerCorrection(result.suggestion); // the right CEP
+    if (result.candidates) return pickOne(result.candidates);
+    return highlight(Object.entries(result.fields).filter(([, field]) => field.match === "mismatch"));
+}
+```
+
+## Address verification endpoint
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+app.post("/addresses/verify", async (req, res) => {
+  try {
+    res.json(await verifyAddress(lookup, req.body, { signal: AbortSignal.timeout(8_000) }));
+  } catch (error: any) {
+    const timedOut = error.name === "TimeoutError" || error.name === "AbortError";
+    res.status(timedOut ? 504 : 502).json({ code: error.code ?? "UNKNOWN", message: error.message });
+  }
+});
+```
+
+Bad data comes back as `200` with the verdict in the body; only infrastructure failures become `5xx`.
+
+## Audit an address database
+
+```ts
+import { verifyAddress } from "@eusilvio/cep-lookup/verify";
+
+async function auditAddresses(customers: Customer[], concurrency = 4) {
+  const issues: Array<{ id: string; status: string; suggestion?: Address }> = [];
+  let next = 0;
+
+  const worker = async () => {
+    while (next < customers.length) {
+      const { id, address } = customers[next++];
+      try {
+        const result = await verifyAddress(lookup, address, { searchTimeout: 3_000 });
+        if (result.status !== "confirmed") {
+          issues.push({ id, status: result.status, suggestion: result.suggestion });
+        }
+      } catch {
+        issues.push({ id, status: "error" }); // infrastructure: retry later
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return issues;
+}
+```
+
+Reverse searches go straight to ViaCEP and skip the engine's `rateLimit`: pace the audit through concurrency.
+
 ## Cancel an in-flight lookup from a React input
 
 ```ts

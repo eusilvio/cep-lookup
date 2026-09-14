@@ -19,7 +19,7 @@ import {
 | `viaCepProvider` | `ViaCEP` | Único com busca reversa (`searchByAddress`); preenche `complement` |
 | `brasilApiProvider` | `BrasilAPI` | Endpoint v2; preenche `location` (latitude/longitude) |
 | `apicepProvider` | `ApiCEP` | Terceira opção sólida |
-| `openCepProvider` | `OpenCEP` | Alternativa leve |
+| `openCepProvider` | `OpenCEP` | Alternativa leve; preenche `complement` |
 | `createGatewayProvider` | `Gateway` | Fábrica para gateway próprio que já devolve `Address` |
 
 Use **pelo menos dois** em produção. Um provedor só transforma qualquer instabilidade dele em indisponibilidade sua.

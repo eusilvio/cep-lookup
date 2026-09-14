@@ -3,8 +3,25 @@
 Every version in this line is backward compatible: nothing below requires a code change. Each addition is opt-in.
 
 ::: info Versions
-The persistent cache adapters described below require `2.9.0` or newer.
+Address verification described below requires `2.10.0` or newer; the persistent cache adapters, `2.9.0`.
 :::
+
+## 2.9.x → 2.10.0
+
+### Added
+
+- **Address verification** under the `@eusilvio/cep-lookup/verify` subpath: `verifyAddress(cep, address)` checks state, city, neighborhood, street and house number against the CEP and returns a status (`confirmed`, `plausible`, `conflict`, `unverifiable`, `not_found`, `invalid`), a score, a per-field outcome and a suggestion ready to store. Bad data never throws.
+- **CEP correction**: when the CEP conflicts with the address, doesn't exist or is malformed, a reverse search finds the CEP that serves the typed street and number - or lists `candidates` when several fit.
+- **House number vs. the Correios range**: `de 612 a 1510 - lado par`, `até 894/0895`, single-building CEPs.
+- **Zero-network building blocks**: `compareAddress`, `normalizeAddressText`, `parseNumberRange` and `isNumberInRange`.
+- **`searchByAddress(state, city, street, { signal })`** accepts an `AbortSignal`.
+- **`openCepProvider`** now fills `Address.complement`.
+
+The main entry point does not grow: verification ships only in the `/verify` subpath. Its types are also exported from the main entry.
+
+```bash
+npm i @eusilvio/cep-lookup@^2.10.0
+```
 
 ## 2.8.x → 2.9.0
 

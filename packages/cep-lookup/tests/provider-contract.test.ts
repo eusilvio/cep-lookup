@@ -82,6 +82,19 @@ describe("Provider contract", () => {
     expect(result.cep).toBe("01001000");
   });
 
+  it("openCepProvider should map the Correios complement", () => {
+    const payload = {
+      cep: "01310-100",
+      uf: "SP",
+      localidade: "São Paulo",
+      bairro: "Bela Vista",
+      logradouro: "Avenida Paulista",
+      complemento: "de 612 a 1510 - lado par",
+    };
+    expect(openCepProvider.transform(payload).complement).toBe("de 612 a 1510 - lado par");
+    expect(openCepProvider.transform({ ...payload, complemento: "" }).complement).toBeUndefined();
+  });
+
   it("openCepProvider should throw not found on error payload", () => {
     expect(() => openCepProvider.transform({ error: true })).toThrow("CEP not found");
   });
